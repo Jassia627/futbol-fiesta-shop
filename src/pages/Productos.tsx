@@ -79,30 +79,35 @@ const Productos = () => {
     
     const fetchFiltros = async () => {
       try {
-        // Obtener ligas
-        const { data: ligasData, error: ligasError } = await supabase
-          .from("ligas")
-          .select("nombre");
-          
-        if (ligasError) throw ligasError;
-        
-        setLigas(ligasData.map(liga => liga.nombre));
-        
-        // Obtener categorías únicas
+        // Obtener productos primero para extraer categorías
         const { data: productosData, error: productosError } = await supabase
           .from("productos")
-          .select("categoria");
+          .select("categoria, liga");
           
         if (productosError) throw productosError;
         
+        // Extraer categorías únicas de los productos
         const categoriasUnicas = [...new Set(productosData
           .map(producto => producto.categoria)
           .filter(categoria => categoria)
         )];
         
         setCategorias(categoriasUnicas);
+        
+        // Extraer ligas únicas de los productos
+        const ligasUnicas = [...new Set(productosData
+          .map(producto => producto.liga)
+          .filter(liga => liga)
+        )];
+        
+        setLigas(ligasUnicas);
       } catch (error) {
         console.error("Error al cargar filtros:", error);
+        toast({
+          title: "Advertencia",
+          description: "No se pudieron cargar algunos filtros.",
+          variant: "default",
+        });
       }
     };
 
@@ -170,7 +175,7 @@ const Productos = () => {
                   <SelectValue placeholder="Todas las ligas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas las ligas</SelectItem>
+                  <SelectItem value="todas-ligas">Todas las ligas</SelectItem>
                   {ligas.map((liga) => (
                     <SelectItem key={liga} value={liga}>
                       {liga}
@@ -190,7 +195,7 @@ const Productos = () => {
                   <SelectValue placeholder="Todas las categorías" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas las categorías</SelectItem>
+                  <SelectItem value="todas-categorias">Todas las categorías</SelectItem>
                   {categorias.map((categoria) => (
                     <SelectItem key={categoria} value={categoria}>
                       {categoria}
