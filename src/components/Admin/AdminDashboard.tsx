@@ -158,7 +158,7 @@ const AdminDashboard = () => {
                 <TrendingUp className="h-4 w-4 text-green-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">€{stats.totalVentas.toFixed(2)}</div>
+                <div className="text-2xl font-bold">${stats.totalVentas.toFixed(2)}</div>
                 <p className="text-xs text-green-500 flex items-center mt-1">
                   <ArrowUpRight className="h-4 w-4 mr-1" />
                   +10.5% desde el mes anterior

@@ -1,0 +1,422 @@
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Loader2, Plus, Trash2, Edit2, Save, X, Upload, Image as ImageIcon } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+
+const GestionarLigas = () => {
+  const [ligas, setLigas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const fileInputRef = useRef(null);
+  const editFileInputRef = useRef(null);
+  const [newLiga, setNewLiga] = useState({
+    nombre: "",
+    pais: "",
+    logo: ""
+  });
+  const [editLiga, setEditLiga] = useState({
+    nombre: "",
+    pais: "",
+    logo: ""
+  });
+  const [imageFile, setImageFile] = useState(null);
+  const [editImageFile, setEditImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [editImagePreview, setEditImagePreview] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchLigas();
+  }, []);
+
+  const fetchLigas = async () => {
+    try {
+      setLoading(true);
+      
+      // Intentar obtener ligas de Supabase
+      const { data, error } = await supabase
+        .from("ligas")
+        .select("*")
+        .order("nombre");
+
+      if (error) {
+        // Si hay error de recursión infinita, usar datos predeterminados
+        if (error.code === '42P17' && error.message?.includes('infinite recursion')) {
+          console.warn("Error de recursión en políticas al cargar ligas, usando datos locales");
+          // Intentar obtener ligas del localStorage como respaldo
+          const localLigas = localStorage.getItem('ligas');
+          if (localLigas) {
+            setLigas(JSON.parse(localLigas));
+          } else {
+            // Si no hay datos en localStorage, usar datos predeterminados
+            const defaultLigas = [
+              { id: '1', nombre: 'La Liga', pais: 'España', logo: '/placeholder.svg' },
+              { id: '2', nombre: 'Premier League', pais: 'Inglaterra', logo: '/placeholder.svg' },
+              { id: '3', nombre: 'Serie A', pais: 'Italia', logo: '/placeholder.svg' },
+              { id: '4', nombre: 'Bundesliga', pais: 'Alemania', logo: '/placeholder.svg' },
+              { id: '5', nombre: 'Ligue 1', pais: 'Francia', logo: '/placeholder.svg' }
+            ];
+            setLigas(defaultLigas);
+            // Guardar en localStorage para uso futuro
+            localStorage.setItem('ligas', JSON.stringify(defaultLigas));
+          }
+        } else {
+          throw error;
+        }
+      } else {
+        setLigas(data || []);
+        // Actualizar localStorage
+        localStorage.setItem('ligas', JSON.stringify(data || []));
+      }
+    } catch (error) {
+      console.error("Error al cargar ligas:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las ligas",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddLiga = async () => {
+    if (!newLiga.nombre) {
+      toast({
+        title: "Error",
+        description: "El nombre de la liga es obligatorio",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Generar un ID único para almacenamiento local
+      const localId = Date.now().toString();
+      
+      // Intentar agregar a Supabase
+      const { data, error } = await supabase
+        .from("ligas")
+        .insert([newLiga])
+        .select();
+
+      if (error) {
+        // Si hay error, agregar localmente
+        console.warn("Error al agregar liga en Supabase, guardando localmente", error);
+        
+        const newLigaWithId = {
+          ...newLiga,
+          id: localId,
+          created_at: new Date().toISOString()
+        };
+        
+        const updatedLigas = [...ligas, newLigaWithId];
+        setLigas(updatedLigas);
+        localStorage.setItem('ligas', JSON.stringify(updatedLigas));
+        
+        toast({
+          title: "Liga guardada localmente",
+          description: "La liga se ha guardado en el almacenamiento local",
+        });
+      } else {
+        // Si se agregó correctamente a Supabase
+        setLigas([...ligas, data[0]]);
+        localStorage.setItem('ligas', JSON.stringify([...ligas, data[0]]));
+        
+        toast({
+          title: "Éxito",
+          description: "Liga agregada correctamente",
+        });
+      }
+
+      // Limpiar formulario
+      setNewLiga({
+        nombre: "",
+        pais: "",
+        logo: ""
+      });
+    } catch (error) {
+      console.error("Error al agregar liga:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo agregar la liga",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditLiga = (liga) => {
+    setEditingId(liga.id);
+    setEditLiga({
+      nombre: liga.nombre,
+      pais: liga.pais || "",
+      logo: liga.logo || ""
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editLiga.nombre) {
+      toast({
+        title: "Error",
+        description: "El nombre de la liga es obligatorio",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Intentar actualizar en Supabase
+      const { error } = await supabase
+        .from("ligas")
+        .update(editLiga)
+        .eq("id", editingId);
+
+      if (error) {
+        // Si hay error, actualizar localmente
+        console.warn("Error al actualizar liga en Supabase, actualizando localmente", error);
+        
+        const updatedLigas = ligas.map(liga => 
+          liga.id === editingId ? { ...liga, ...editLiga } : liga
+        );
+        
+        setLigas(updatedLigas);
+        localStorage.setItem('ligas', JSON.stringify(updatedLigas));
+        
+        toast({
+          title: "Liga actualizada localmente",
+          description: "La liga se ha actualizado en el almacenamiento local",
+        });
+      } else {
+        // Si se actualizó correctamente en Supabase
+        const updatedLigas = ligas.map(liga => 
+          liga.id === editingId ? { ...liga, ...editLiga } : liga
+        );
+        
+        setLigas(updatedLigas);
+        localStorage.setItem('ligas', JSON.stringify(updatedLigas));
+        
+        toast({
+          title: "Éxito",
+          description: "Liga actualizada correctamente",
+        });
+      }
+
+      // Limpiar estado de edición
+      setEditingId(null);
+    } catch (error) {
+      console.error("Error al actualizar liga:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la liga",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteLiga = async (id) => {
+    try {
+      // Intentar eliminar de Supabase
+      const { error } = await supabase
+        .from("ligas")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        // Si hay error, eliminar localmente
+        console.warn("Error al eliminar liga en Supabase, eliminando localmente", error);
+      }
+      
+      // Actualizar estado local independientemente del resultado en Supabase
+      const updatedLigas = ligas.filter(liga => liga.id !== id);
+      setLigas(updatedLigas);
+      localStorage.setItem('ligas', JSON.stringify(updatedLigas));
+      
+      toast({
+        title: "Liga eliminada",
+        description: "La liga se ha eliminado correctamente",
+      });
+    } catch (error) {
+      console.error("Error al eliminar liga:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la liga",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Gestionar Ligas</CardTitle>
+        <CardDescription>
+          Agrega, edita o elimina ligas para tus productos
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-6">
+          {/* Formulario para agregar nueva liga */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="mb-4 bg-orange-500 hover:bg-orange-600">
+                <Plus className="mr-2 h-4 w-4" /> Agregar Liga
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Agregar Nueva Liga</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nombre">Nombre de la Liga*</Label>
+                  <Input
+                    id="nombre"
+                    value={newLiga.nombre}
+                    onChange={(e) => setNewLiga({ ...newLiga, nombre: e.target.value })}
+                    placeholder="Ej. Premier League"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pais">País</Label>
+                  <Input
+                    id="pais"
+                    value={newLiga.pais}
+                    onChange={(e) => setNewLiga({ ...newLiga, pais: e.target.value })}
+                    placeholder="Ej. Inglaterra"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="logo">URL del Logo</Label>
+                  <Input
+                    id="logo"
+                    value={newLiga.logo}
+                    onChange={(e) => setNewLiga({ ...newLiga, logo: e.target.value })}
+                    placeholder="https://ejemplo.com/logo.png"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Cancelar</Button>
+                </DialogClose>
+                <Button 
+                  onClick={handleAddLiga} 
+                  disabled={submitting}
+                  className="bg-orange-500 hover:bg-orange-600"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>Guardar</>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Tabla de ligas */}
+          {ligas.length > 0 ? (
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>País</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ligas.map((liga) => (
+                    <TableRow key={liga.id}>
+                      <TableCell>
+                        {liga.logo && (
+                          <div className="w-8 h-8">
+                            <img 
+                              src={liga.logo} 
+                              alt={liga.nombre} 
+                              className="w-full h-full object-contain"
+                              onError={(e) => {
+                                const imgElement = e.target as HTMLImageElement;
+                                imgElement.src = "/placeholder.svg";
+                              }}
+                            />
+                          </div>
+                        )}
+                              onClick={handleSaveEdit}
+                              disabled={submitting}
+                            >
+                              {submitting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Save className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end space-x-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleEditLiga(liga)}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleDeleteLiga(liga.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center p-8 border rounded-md bg-gray-50">
+              <p className="text-gray-500">No hay ligas agregadas</p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default GestionarLigas;

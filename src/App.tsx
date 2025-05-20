@@ -15,6 +15,7 @@ import Ligas from "./pages/Ligas";
 import Equipos from "./pages/Equipos";
 import LigaDetalle from "./pages/LigaDetalle";
 import EquipoDetalle from "./pages/EquipoDetalle";
+import Carrito from "./pages/Carrito";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/admin" element={<AdminIndex />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/pedidos" element={<MisPedidos />} />
+          <Route path="/carrito" element={<Carrito />} />
           <Route path="/ligas" element={<Ligas />} />
           <Route path="/equipos" element={<Equipos />} />
           <Route path="/liga/:id" element={<LigaDetalle />} />

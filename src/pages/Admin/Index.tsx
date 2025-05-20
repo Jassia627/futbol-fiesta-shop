@@ -80,7 +80,7 @@ const AdminIndex = () => {
       <div className="container mx-auto px-4 py-8 flex-1">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-blue-900">Panel de Administración</h1>
-          <p className="text-gray-600">Administra tu tienda Fútbol Fiesta Shop</p>
+          <p className="text-gray-600">Administra tu tienda KB-SPORT3</p>
         </div>
         
         <Tabs defaultValue="dashboard">

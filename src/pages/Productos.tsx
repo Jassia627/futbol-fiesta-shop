@@ -156,15 +156,23 @@ const Productos = () => {
               <Button 
                 variant="outline" 
                 className="flex items-center gap-2"
-                onClick={limpiarFiltros}
+                onClick={() => document.getElementById('filtros-movil')?.classList.toggle('hidden')}
               >
                 <Filter size={16} />
-                Limpiar filtros
+                Filtros
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                className="flex items-center gap-2 text-orange-500 hover:text-orange-600"
+                onClick={limpiarFiltros}
+              >
+                Limpiar
               </Button>
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div id="filtros-movil" className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 border-t pt-4 md:border-0 md:pt-0 md:mt-0 hidden md:grid">
             <div>
               <label className="text-sm font-medium mb-1 block">Liga</label>
               <Select
@@ -206,7 +214,7 @@ const Productos = () => {
             </div>
             
             <div>
-              <label className="text-sm font-medium mb-1 block">Precio mínimo (€)</label>
+              <label className="text-sm font-medium mb-1 block">Precio mínimo ($)</label>
               <Input
                 type="number"
                 placeholder="Mínimo"
@@ -216,7 +224,7 @@ const Productos = () => {
             </div>
             
             <div>
-              <label className="text-sm font-medium mb-1 block">Precio máximo (€)</label>
+              <label className="text-sm font-medium mb-1 block">Precio máximo ($)</label>
               <Input
                 type="number"
                 placeholder="Máximo"
@@ -227,15 +235,54 @@ const Productos = () => {
           </div>
         </div>
         
+        {/* Resumen de filtros activos */}
+        {(filtros.liga || filtros.categoria || filtros.precioMin || filtros.precioMax) && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            <span className="text-sm text-gray-500">Filtros activos:</span>
+            {filtros.liga && (
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center gap-1">
+                Liga: {filtros.liga}
+                <button onClick={() => handleFiltroChange("liga", "")} className="hover:text-blue-600">
+                  ✕
+                </button>
+              </span>
+            )}
+            {filtros.categoria && (
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1">
+                Categoría: {filtros.categoria}
+                <button onClick={() => handleFiltroChange("categoria", "")} className="hover:text-green-600">
+                  ✕
+                </button>
+              </span>
+            )}
+            {filtros.precioMin && (
+              <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full flex items-center gap-1">
+                Desde: ${filtros.precioMin}
+                <button onClick={() => handleFiltroChange("precioMin", "")} className="hover:text-orange-600">
+                  ✕
+                </button>
+              </span>
+            )}
+            {filtros.precioMax && (
+              <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full flex items-center gap-1">
+                Hasta: ${filtros.precioMax}
+                <button onClick={() => handleFiltroChange("precioMax", "")} className="hover:text-orange-600">
+                  ✕
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+        
         {/* Productos */}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="bg-gray-200 rounded-lg p-4 h-64 animate-pulse"></div>
+              <div key={i} className="bg-gray-200 rounded-lg p-4 h-48 md:h-64 animate-pulse"></div>
             ))}
           </div>
         ) : productos.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
             {productos.map((producto) => (
               <ProductoCard key={producto.id} producto={producto} />
             ))}

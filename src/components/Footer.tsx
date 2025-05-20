@@ -8,7 +8,7 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
-            <h3 className="text-xl font-bold mb-4">Fútbol Fiesta Shop</h3>
+            <h3 className="text-xl font-bold mb-4">KB-SPORT3</h3>
             <p className="mb-4">
               Tu tienda especializada en productos de fútbol. Equipaciones oficiales, 
               balones y accesorios de tus equipos favoritos.
@@ -94,7 +94,7 @@ const Footer = () => {
         </div>
         
         <div className="border-t border-blue-800 mt-8 pt-8 text-center">
-          <p>&copy; {new Date().getFullYear()} Fútbol Fiesta Shop. Todos los derechos reservados.</p>
+          <p>&copy; {new Date().getFullYear()} KB-SPORT3. Todos los derechos reservados.</p>
         </div>
       </div>
     </footer>

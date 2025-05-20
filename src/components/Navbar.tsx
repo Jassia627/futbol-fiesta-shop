@@ -55,12 +55,21 @@ const Navbar = () => {
         .single();
 
       if (error) {
+        // Verificar si es el error específico de recursión infinita
+        if (error.code === '42P17' && error.message?.includes('infinite recursion')) {
+          console.warn("Error de recursión en políticas de perfiles, usando rol predeterminado");
+          // Establecer un rol predeterminado para permitir que la aplicación funcione
+          setUserRole("cliente");
+          return;
+        }
         throw error;
       }
 
       setUserRole(data?.rol || "cliente");
     } catch (error) {
       console.error("Error al obtener rol de usuario:", error);
+      // Establecer un rol predeterminado en caso de cualquier error
+      setUserRole("cliente");
     }
   };
 
@@ -92,7 +101,7 @@ const Navbar = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center">
             <span className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-blue-900 bg-clip-text text-transparent">
-              Fútbol Fiesta Shop
+            KB-SPORT3
             </span>
           </Link>
 
@@ -100,12 +109,6 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-4">
             <Link to="/productos" className="text-gray-700 hover:text-orange-500">
               Productos
-            </Link>
-            <Link to="/ligas" className="text-gray-700 hover:text-orange-500">
-              Ligas
-            </Link>
-            <Link to="/equipos" className="text-gray-700 hover:text-orange-500">
-              Equipos
             </Link>
             
             {session ? (
@@ -170,12 +173,6 @@ const Navbar = () => {
           <div className="md:hidden py-4 space-y-3">
             <Link to="/productos" className="block text-gray-700 hover:text-orange-500 py-2">
               Productos
-            </Link>
-            <Link to="/ligas" className="block text-gray-700 hover:text-orange-500 py-2">
-              Ligas
-            </Link>
-            <Link to="/equipos" className="block text-gray-700 hover:text-orange-500 py-2">
-              Equipos
             </Link>
             
             {session ? (

@@ -204,7 +204,7 @@ const MisProductos = ({ userId }) => {
                 {productos.map((producto) => (
                   <TableRow key={producto.id}>
                     <TableCell className="font-medium">{producto.nombre}</TableCell>
-                    <TableCell>€{producto.precio.toFixed(2)}</TableCell>
+                    <TableCell>${producto.precio.toFixed(2)}</TableCell>
                     <TableCell>{producto.stock}</TableCell>
                     <TableCell>{producto.categoria || "-"}</TableCell>
                     <TableCell className="text-right">

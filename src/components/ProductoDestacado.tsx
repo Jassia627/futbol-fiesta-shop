@@ -17,7 +17,7 @@ const ProductoDestacado = ({ producto }) => {
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-semibold text-lg line-clamp-2">{producto.nombre}</h3>
         </div>
-        <p className="text-blue-900 font-bold text-xl">€{producto.precio.toFixed(2)}</p>
+        <p className="text-blue-900 font-bold text-xl">${producto.precio.toFixed(2)}</p>
         <p className="text-gray-500 text-sm">{producto.equipo || producto.categoria}</p>
       </CardContent>
       <CardFooter className="p-4 pt-0 flex justify-between">

@@ -206,7 +206,7 @@ const AdminPedidos = () => {
                         : "Cliente"}
                     </TableCell>
                     <TableCell>{formatFecha(pedido.fecha_pedido)}</TableCell>
-                    <TableCell>€{pedido.total.toFixed(2)}</TableCell>
+                    <TableCell>${pedido.total.toFixed(2)}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs ${getEstadoColor(pedido.estado)}`}>
                         {pedido.estado.charAt(0).toUpperCase() + pedido.estado.slice(1)}
@@ -293,10 +293,10 @@ const AdminPedidos = () => {
                   {pedidoItems.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.productos?.nombre || "Producto"}</TableCell>
-                      <TableCell className="text-right">€{item.precio_unitario.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">${item.precio_unitario.toFixed(2)}</TableCell>
                       <TableCell className="text-right">{item.cantidad}</TableCell>
                       <TableCell className="text-right">
-                        €{(item.precio_unitario * item.cantidad).toFixed(2)}
+                        ${(item.precio_unitario * item.cantidad).toFixed(2)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -305,7 +305,7 @@ const AdminPedidos = () => {
                       Total:
                     </TableCell>
                     <TableCell className="text-right font-bold">
-                      €{currentPedido.total.toFixed(2)}
+                      ${currentPedido.total.toFixed(2)}
                     </TableCell>
                   </TableRow>
                 </TableBody>

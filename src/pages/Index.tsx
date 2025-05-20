@@ -49,7 +49,7 @@ const Index = () => {
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-orange-500 to-blue-900 text-white">
         <div className="container mx-auto px-4 py-16 md:py-24 flex flex-col items-center text-center">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">Fútbol Fiesta Shop</h1>
+          <h1 className="text-4xl md:text-6xl font-bold mb-6">KB-SPORT3</h1>
           <p className="text-xl md:text-2xl mb-8 max-w-2xl">
             La mejor tienda para aficionados del fútbol. Encuentra camisetas, 
             balones y accesorios de tus equipos favoritos.

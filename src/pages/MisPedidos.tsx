@@ -193,7 +193,7 @@ const MisPedidos = () => {
                             {format(new Date(pedido.fecha_pedido), "d 'de' MMMM, yyyy", { locale: es })}
                           </div>
                           <div className="font-medium text-gray-800">
-                            €{pedido.total.toFixed(2)}
+                            ${pedido.total.toFixed(2)}
                           </div>
                         </div>
                       </div>
@@ -242,9 +242,9 @@ const MisPedidos = () => {
                                     </div>
                                   </TableCell>
                                   <TableCell className="text-right">{item.cantidad}</TableCell>
-                                  <TableCell className="text-right">€{item.precio_unitario.toFixed(2)}</TableCell>
+                                  <TableCell className="text-right">${item.precio_unitario.toFixed(2)}</TableCell>
                                   <TableCell className="text-right font-medium">
-                                    €{(item.cantidad * item.precio_unitario).toFixed(2)}
+                                    ${(item.cantidad * item.precio_unitario).toFixed(2)}
                                   </TableCell>
                                 </TableRow>
                               ))}
