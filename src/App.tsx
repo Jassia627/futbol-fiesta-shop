@@ -16,6 +16,8 @@ import Equipos from "./pages/Equipos";
 import LigaDetalle from "./pages/LigaDetalle";
 import EquipoDetalle from "./pages/EquipoDetalle";
 import Carrito from "./pages/Carrito";
+import AdminPedidos from "./components/Admin/AdminPedidos";
+import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient();
 
@@ -30,13 +32,15 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/productos" element={<Productos />} />
           <Route path="/admin" element={<AdminIndex />} />
+          <Route path="/admin-panel" element={<AdminPanel />} />
           <Route path="/perfil" element={<Perfil />} />
-          <Route path="/pedidos" element={<MisPedidos />} />
           <Route path="/carrito" element={<Carrito />} />
           <Route path="/ligas" element={<Ligas />} />
           <Route path="/equipos" element={<Equipos />} />
           <Route path="/liga/:id" element={<LigaDetalle />} />
           <Route path="/equipo/:id" element={<EquipoDetalle />} />
+          <Route path="/pedidos" element={<AdminPedidos />} />
+          <Route path="/mis-pedidos" element={<MisPedidos />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

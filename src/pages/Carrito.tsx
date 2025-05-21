@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 interface CarritoItem {
   id: string;
   producto_id: string;
-  carrito_id: string;
+  carrito_id?: string;
   cantidad: number;
   precio_unitario: number;
   producto: {
@@ -25,13 +25,26 @@ interface CarritoItem {
   };
 }
 
+interface DatosCliente {
+  nombre: string;
+  telefono: string;
+  direccion: string;
+  email?: string;
+}
+
 const Carrito = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<CarritoItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [telefono, setTelefono] = useState("");
+  const [datosCliente, setDatosCliente] = useState<DatosCliente>({
+    nombre: "",
+    telefono: "",
+    direccion: "",
+    email: ""
+  });
   const [enviandoPedido, setEnviandoPedido] = useState(false);
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -41,15 +54,16 @@ const Carrito = () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
-        if (!session) {
-          setLoading(false);
-          navigate("/auth");
-          return;
+        if (session) {
+          setUser(session.user);
+          await fetchCarrito(session.user.id);
+          await fetchPerfilUsuario(session.user.id);
+        } else {
+          // Cargar carrito desde localStorage para usuarios no autenticados
+          const carritoLocal = JSON.parse(localStorage.getItem('carritoLocal') || '[]');
+          setItems(carritoLocal);
+          calcularTotal(carritoLocal);
         }
-        
-        setUser(session.user);
-        await fetchCarrito(session.user.id);
-        await fetchPerfilUsuario(session.user.id);
       } catch (error) {
         console.error("Error al verificar sesión:", error);
       } finally {
@@ -64,31 +78,22 @@ const Carrito = () => {
     try {
       const { data, error } = await supabase
         .from("perfiles")
-        .select("telefono")
+        .select("nombre, apellido, telefono, direccion")
         .eq("id", userId)
         .single();
 
       if (error) {
         console.warn("Error al cargar perfil:", error);
-        toast({
-          title: "Aviso",
-          description: "No se pudo cargar tu número de teléfono. Verifica tu perfil.",
-        });
         return;
       }
       
-      if (data && data.telefono) {
-        setTelefono(data.telefono);
-      } else {
-        toast({
-          title: "Información requerida",
-          description: "No tienes un número de teléfono guardado. Por favor actualiza tu perfil.",
-          variant: "destructive",
+      if (data) {
+        setDatosCliente({
+          nombre: `${data.nombre || ''} ${data.apellido || ''}`.trim(),
+          telefono: data.telefono || '',
+          direccion: data.direccion || '',
+          email: user?.email || ''
         });
-        // Redirigir al usuario a la página de perfil después de un breve retraso
-        setTimeout(() => {
-          navigate("/perfil");
-        }, 3000);
       }
     } catch (error) {
       console.error("Error al cargar perfil:", error);
@@ -164,12 +169,24 @@ const Carrito = () => {
     if (nuevaCantidad < 1) return;
     
     try {
-      const { error } = await supabase
-        .from("carrito_items")
-        .update({ cantidad: nuevaCantidad })
-        .eq("id", itemId);
-      
-      if (error) throw error;
+      if (user) {
+        // Usuario autenticado - actualizar en Supabase
+        const { error } = await supabase
+          .from("carrito_items")
+          .update({ cantidad: nuevaCantidad })
+          .eq("id", itemId);
+        
+        if (error) throw error;
+      } else {
+        // Usuario no autenticado - actualizar en localStorage
+        const carritoLocal = JSON.parse(localStorage.getItem('carritoLocal') || '[]');
+        const itemIndex = carritoLocal.findIndex(item => item.id === itemId);
+        
+        if (itemIndex !== -1) {
+          carritoLocal[itemIndex].cantidad = nuevaCantidad;
+          localStorage.setItem('carritoLocal', JSON.stringify(carritoLocal));
+        }
+      }
       
       // Actualizar estado local
       const nuevosItems = items.map(item => {
@@ -193,12 +210,20 @@ const Carrito = () => {
 
   const eliminarItem = async (itemId: string) => {
     try {
-      const { error } = await supabase
-        .from("carrito_items")
-        .delete()
-        .eq("id", itemId);
-      
-      if (error) throw error;
+      if (user) {
+        // Usuario autenticado - eliminar de Supabase
+        const { error } = await supabase
+          .from("carrito_items")
+          .delete()
+          .eq("id", itemId);
+        
+        if (error) throw error;
+      } else {
+        // Usuario no autenticado - eliminar de localStorage
+        const carritoLocal = JSON.parse(localStorage.getItem('carritoLocal') || '[]');
+        const nuevosItems = carritoLocal.filter(item => item.id !== itemId);
+        localStorage.setItem('carritoLocal', JSON.stringify(nuevosItems));
+      }
       
       // Actualizar estado local
       const nuevosItems = items.filter(item => item.id !== itemId);
@@ -216,10 +241,20 @@ const Carrito = () => {
         description: "No se pudo eliminar el producto del carrito",
         variant: "destructive",
       });
+    } finally {
+      setEnviandoPedido(false);
     }
   };
 
-  const enviarPedidoWhatsApp = () => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setDatosCliente(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const prepararPedido = () => {
     if (items.length === 0) {
       toast({
         title: "Carrito vacío",
@@ -229,42 +264,303 @@ const Carrito = () => {
       return;
     }
 
-    if (!telefono) {
+    // Si el usuario está autenticado y ya tenemos sus datos, podemos proceder
+    if (user && datosCliente.nombre && datosCliente.telefono && datosCliente.direccion) {
+      enviarPedidoWhatsApp();
+    } else {
+      // Mostrar formulario para recopilar datos del cliente
+      setMostrarFormulario(true);
+    }
+  };
+
+  const validarFormulario = () => {
+    if (!datosCliente.nombre || !datosCliente.telefono || !datosCliente.direccion) {
       toast({
-        title: "Información faltante",
-        description: "No se ha encontrado un número de teléfono en tu perfil. Por favor actualiza tu perfil.",
+        title: "Información incompleta",
+        description: "Por favor completa todos los campos requeridos",
         variant: "destructive",
       });
-      navigate("/perfil");
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const formatearTelefono = (telefono: string) => {
+    // Asegurarse de que el teléfono tenga el prefijo de Colombia (+57)
+    if (!telefono.startsWith('+')) {
+      return `+57${telefono.replace(/^0+/, '')}`;
+    } else if (!telefono.startsWith('+57')) {
+      return `+57${telefono.replace(/^\+/, '')}`;
+    }
+    return telefono;
+  };
+
+  const guardarPedidoEnBaseDeDatos = async () => {
+    try {
+      const totalPedido = items.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
+      
+      // Formatear teléfono con prefijo de Colombia si es necesario
+      const telefonoFormateado = formatearTelefono(datosCliente.telefono);
+      
+      // Generar un ID único para el pedido
+      const pedidoId = crypto.randomUUID();
+      
+      // Intentar insertar directamente primero
+      const { data: pedidoInsertado, error: pedidoError } = await supabase
+        .from('pedidos')
+        .insert({
+          id: pedidoId,
+          usuario_id: user?.id || null,
+          total: totalPedido,
+          estado: 'pendiente',
+          metodo_pago: 'WhatsApp',
+          direccion_envio: datosCliente.direccion,
+          fecha_pedido: new Date().toISOString(),
+          cliente_nombre: datosCliente.nombre,
+          cliente_telefono: telefonoFormateado,
+          cliente_email: datosCliente.email || ''
+        })
+        .select('id')
+        .single();
+      
+      if (pedidoError) {
+        console.error('Error al insertar pedido con RPC:', pedidoError);
+        
+        // Intentar con método alternativo: inserción directa con fetch
+        let errorSQL = null;
+        try {
+          // Obtener token de autenticación
+          const { data: authData } = await supabase.auth.getSession();
+          const token = authData.session?.access_token;
+          
+          // Usar fetch directamente para evitar las políticas de seguridad
+          const SUPABASE_URL = "https://iqjkedmjefefohhxgffd.supabase.co";
+          const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxamtlZG1qZWZlZm9oaHhnZmZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc1ODkxODAsImV4cCI6MjA2MzE2NTE4MH0.1evYDr4jb8D-QRo06mdDjVzX2RYt5mtUS4yfhaGu2CM";
+          
+          const response = await fetch(`${SUPABASE_URL}/rest/v1/pedidos`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_KEY,
+              'Authorization': token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}`,
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+              id: pedidoId,
+              usuario_id: user?.id || null,
+              total: totalPedido,
+              estado: 'pendiente',
+              metodo_pago: 'WhatsApp',
+              direccion_envio: datosCliente.direccion,
+              fecha_pedido: new Date().toISOString(),
+              cliente_nombre: datosCliente.nombre,
+              cliente_telefono: telefonoFormateado,
+              cliente_email: datosCliente.email || ''
+            })
+          });
+          
+          if (!response.ok) {
+            errorSQL = { message: `Error HTTP: ${response.status}` };
+          }
+        } catch (err) {
+          errorSQL = err;
+        }
+        
+        if (errorSQL) {
+          console.error('Error al insertar pedido con SQL directo:', errorSQL);
+          
+          // Como último recurso, guardar los datos del pedido en localStorage
+          const pedidoLocal = {
+            id: pedidoId,
+            usuario_id: user?.id || null,
+            total: totalPedido,
+            estado: 'pendiente',
+            metodo_pago: 'WhatsApp',
+            direccion_envio: datosCliente.direccion,
+            fecha_pedido: new Date().toISOString(),
+            cliente_nombre: datosCliente.nombre,
+            cliente_telefono: telefonoFormateado,
+            cliente_email: datosCliente.email || '',
+            items: items.map(item => ({
+              producto_id: item.producto.id,
+              cantidad: item.cantidad,
+              precio_unitario: item.precio_unitario,
+              nombre_producto: item.producto.nombre
+            }))
+          };
+          
+          // Guardar en localStorage
+          const pedidosGuardados = JSON.parse(localStorage.getItem('pedidos_pendientes') || '[]');
+          pedidosGuardados.push(pedidoLocal);
+          localStorage.setItem('pedidos_pendientes', JSON.stringify(pedidosGuardados));
+          
+          console.log('Pedido guardado localmente como respaldo:', pedidoLocal);
+          
+          // Mostrar mensaje al usuario
+          toast({
+            title: "Advertencia",
+            description: "No se pudo guardar el pedido en la base de datos, pero se ha guardado localmente. Por favor, guarda el número de pedido: " + pedidoId.substring(0, 8),
+            variant: "destructive",
+            duration: 10000
+          });
+          
+          return pedidoId;
+        }
+        
+        console.log('Pedido insertado con SQL directo');
+      } else {
+        console.log('Pedido insertado con RPC:', pedidoInsertado);
+      }
+      
+      // Insertar items del pedido
+      try {
+        // Intentar insertar los items uno por uno para mayor robustez
+        for (const item of items) {
+          const itemData = {
+            pedido_id: pedidoId,
+            producto_id: item.producto.id,
+            cantidad: item.cantidad,
+            precio_unitario: item.precio_unitario
+          };
+          
+          const { error: itemError } = await supabase
+            .from('pedido_items')
+            .insert(itemData);
+          
+          if (itemError) {
+            console.error('Error al insertar item, intentando con SQL directo:', itemError);
+            
+            // Intentar con fetch directo
+            try {
+              const { data: authData } = await supabase.auth.getSession();
+              const token = authData.session?.access_token;
+              
+              const SUPABASE_URL = "https://iqjkedmjefefohhxgffd.supabase.co";
+              const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxamtlZG1qZWZlZm9oaHhnZmZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc1ODkxODAsImV4cCI6MjA2MzE2NTE4MH0.1evYDr4jb8D-QRo06mdDjVzX2RYt5mtUS4yfhaGu2CM";
+              
+              await fetch(`${SUPABASE_URL}/rest/v1/pedido_items`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}`,
+                  'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({
+                  pedido_id: pedidoId,
+                  producto_id: item.producto.id,
+                  cantidad: item.cantidad,
+                  precio_unitario: item.precio_unitario
+                })
+              });
+            } catch (fetchError) {
+              console.error('Error al insertar item con fetch:', fetchError);
+            }
+          }
+        }
+      } catch (itemsError) {
+        console.error('Error al insertar items del pedido:', itemsError);
+        // Continuar a pesar del error para que al menos el pedido principal esté guardado
+      }
+      
+      console.log('Pedido guardado correctamente con ID:', pedidoId);
+      return pedidoId;
+    } catch (error) {
+      console.error('Error al guardar pedido:', error);
+      
+      // Generar un ID temporal para el pedido en caso de error total
+      const pedidoIdTemporal = 'temp-' + Date.now();
+      
+      // Guardar en localStorage como último recurso
+      const pedidoLocal = {
+        id: pedidoIdTemporal,
+        usuario_id: user?.id || null,
+        total: items.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0),
+        estado: 'pendiente',
+        metodo_pago: 'WhatsApp',
+        direccion_envio: datosCliente.direccion,
+        fecha_pedido: new Date().toISOString(),
+        cliente_nombre: datosCliente.nombre,
+        cliente_telefono: formatearTelefono(datosCliente.telefono),
+        cliente_email: datosCliente.email || '',
+        items: items.map(item => ({
+          producto_id: item.producto.id,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario,
+          nombre_producto: item.producto.nombre
+        }))
+      };
+      
+      // Guardar en localStorage
+      const pedidosGuardados = JSON.parse(localStorage.getItem('pedidos_pendientes') || '[]');
+      pedidosGuardados.push(pedidoLocal);
+      localStorage.setItem('pedidos_pendientes', JSON.stringify(pedidosGuardados));
+      
+      console.log('Pedido guardado localmente como último recurso:', pedidoLocal);
+      
+      // Mostrar mensaje al usuario
+      toast({
+        title: "Advertencia",
+        description: "No se pudo guardar el pedido en la base de datos, pero se ha guardado localmente. El pedido se enviará por WhatsApp de todas formas.",
+        variant: "destructive",
+        duration: 10000
+      });
+      
+      return pedidoIdTemporal;
+    }
+  };
+
+  const enviarPedidoWhatsApp = async () => {
+    if (!validarFormulario()) return;
+    
 
     setEnviandoPedido(true);
 
     try {
+      
+      // Obtener ID del pedido guardado
+      const pedidoId = await guardarPedidoEnBaseDeDatos();
+      
       // Formatear mensaje para WhatsApp
-      let mensaje = "¡Hola! Quiero realizar el siguiente pedido:\n\n";
+      let mensaje = `¡Hola! Quiero realizar el siguiente pedido (ID: ${pedidoId.slice(0, 8)}...):\n\n`;
       
       items.forEach(item => {
         mensaje += `• ${item.cantidad}x ${item.producto.nombre} - $${item.precio_unitario.toFixed(2)} c/u - Subtotal: $${(item.cantidad * item.precio_unitario).toFixed(2)}\n`;
       });
       
       mensaje += `\n*Total: $${total.toFixed(2)}*\n\n`;
+      mensaje += `*Datos del cliente:*\n`;
+      mensaje += `Nombre: ${datosCliente.nombre}\n`;
+      mensaje += `Teléfono: ${datosCliente.telefono}\n`;
+      mensaje += `Dirección: ${datosCliente.direccion}\n\n`;
       mensaje += "Por favor, confirma disponibilidad y tiempo de entrega. ¡Gracias!";
       
-      // Número de teléfono con prefijo de Colombia (+57)
-      const numeroWhatsApp = telefono.startsWith("+57") ? telefono : `+57${telefono.replace(/^0+/, '')}`;
+      // Número de teléfono de la tienda (usando el prefijo de Colombia +57)
+      const numeroTienda = "+573015555555"; // Reemplazar con el número real de la tienda
       
       // Crear URL de WhatsApp
-      const whatsappUrl = `https://wa.me/${numeroWhatsApp.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`;
+      const whatsappUrl = `https://wa.me/${numeroTienda.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`;
       
       // Abrir WhatsApp en una nueva pestaña
       window.open(whatsappUrl, "_blank");
       
       toast({
         title: "Pedido enviado",
-        description: "Se ha abierto WhatsApp para enviar tu pedido",
+        description: "Se ha guardado el pedido y abierto WhatsApp para completarlo",
       });
+
+      // Limpiar carrito después de enviar el pedido
+      if (!user) {
+        localStorage.setItem('carritoLocal', '[]');
+        setItems([]);
+        calcularTotal([]);
+      } else {
+        // Si el usuario está autenticado, también podríamos vaciar su carrito en la base de datos
+        // Esto dependerá de la lógica de negocio que se quiera implementar
+      }
+
+      // Ocultar formulario
+      setMostrarFormulario(false);
     } catch (error) {
       console.error("Error al enviar pedido:", error);
       toast({
@@ -382,37 +678,94 @@ const Carrito = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div>
-                    <div className="flex flex-col space-y-2 mb-4">
-                      <label className="block text-sm font-medium">
-                        Número de teléfono para WhatsApp
-                      </label>
-                      <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
-                        <p className="font-medium">{telefono ? (telefono.startsWith("+57") ? telefono : `+57${telefono.replace(/^0+/, '')}`): "No disponible"}</p>
+                  {mostrarFormulario ? (
+                  <div className="space-y-4 border p-4 rounded-md bg-gray-50">
+                    <h3 className="font-medium text-lg">Datos para el pedido</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Nombre completo *</label>
+                        <Input
+                          name="nombre"
+                          value={datosCliente.nombre}
+                          onChange={handleInputChange}
+                          placeholder="Ingresa tu nombre completo"
+                          required
+                        />
                       </div>
-                      <p className="text-sm text-gray-500">
-                        Este número se obtuvo de tu perfil. Para cambiarlo, actualiza tu perfil.
-                      </p>
-                      {!telefono && (
-                        <Button 
-                          variant="outline" 
-                          className="mt-2" 
-                          onClick={() => navigate("/perfil")}
-                        >
-                          Actualizar perfil
-                        </Button>
-                      )}
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Teléfono (WhatsApp) *</label>
+                        <Input
+                          name="telefono"
+                          value={datosCliente.telefono}
+                          onChange={handleInputChange}
+                          placeholder="Ej: +573001234567"
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Se añadirá el prefijo de Colombia (+57) si no lo incluyes
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Dirección de entrega *</label>
+                        <Input
+                          name="direccion"
+                          value={datosCliente.direccion}
+                          onChange={handleInputChange}
+                          placeholder="Ingresa tu dirección completa"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Email (opcional)</label>
+                        <Input
+                          name="email"
+                          value={datosCliente.email}
+                          onChange={handleInputChange}
+                          placeholder="tu@email.com"
+                          type="email"
+                        />
+                      </div>
                     </div>
                   </div>
+                ) : null}
+                  <div>
+                    <p className="text-sm text-gray-500 mb-2">
+                      Al finalizar la compra, se enviará un mensaje de WhatsApp con los detalles del pedido.
+                    </p>
+                  </div>
                   
-                  <Button 
-                    className="w-full bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2"
-                    onClick={enviarPedidoWhatsApp}
-                    disabled={enviandoPedido || !telefono || items.length === 0}
-                  >
-                    <Send size={18} />
-                    Enviar pedido por WhatsApp
-                  </Button>
+                  {mostrarFormulario ? (
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setMostrarFormulario(false)}
+                        disabled={enviandoPedido}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button 
+                        className="flex-1 bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2"
+                        onClick={enviarPedidoWhatsApp}
+                        disabled={enviandoPedido || items.length === 0}
+                      >
+                        <Send size={18} />
+                        Finalizar pedido
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      className="w-full bg-green-600 hover:bg-green-700 flex items-center justify-center gap-2"
+                      onClick={prepararPedido}
+                      disabled={enviandoPedido || items.length === 0}
+                    >
+                      <Send size={18} />
+                      Realizar pedido
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

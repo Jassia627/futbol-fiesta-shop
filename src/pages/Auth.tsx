@@ -86,6 +86,12 @@ const Auth = () => {
       
       <div className="flex-1 container mx-auto flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
+          <div className="flex flex-col items-center mb-6">
+            <img src="/kb.jpg" alt="KB Sports Logo" className="h-20 w-20 rounded-full object-cover mb-3" />
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-blue-900 bg-clip-text text-transparent">
+              KB-SPORT3
+            </h1>
+          </div>
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="login">Iniciar sesión</TabsTrigger>
@@ -94,7 +100,10 @@ const Auth = () => {
             
             <TabsContent value="login">
               <Card>
-                <CardHeader>
+                <CardHeader className="text-center">
+                  <div className="flex justify-center mb-2">
+                    <img src="/kb.jpg" alt="KB Sports Logo" className="h-12 w-12 rounded-full object-cover" />
+                  </div>
                   <CardTitle>Iniciar sesión</CardTitle>
                   <CardDescription>
                     Ingresa tus datos para acceder a tu cuenta
@@ -151,7 +160,10 @@ const Auth = () => {
             
             <TabsContent value="register">
               <Card>
-                <CardHeader>
+                <CardHeader className="text-center">
+                  <div className="flex justify-center mb-2">
+                    <img src="/kb.jpg" alt="KB Sports Logo" className="h-12 w-12 rounded-full object-cover" />
+                  </div>
                   <CardTitle>Crear cuenta</CardTitle>
                   <CardDescription>
                     Regístrate para comenzar a disfrutar de los mejores productos deportivos

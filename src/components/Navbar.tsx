@@ -99,9 +99,10 @@ const Navbar = () => {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center">
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/kb.jpg" alt="KB Sports Logo" className="h-10 w-10 rounded-full object-cover" />
             <span className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-blue-900 bg-clip-text text-transparent">
-            KB-SPORT3
+              KB-SPORT3
             </span>
           </Link>
 
@@ -111,41 +112,32 @@ const Navbar = () => {
               Productos
             </Link>
             
+            {/* Mostrar botón del carrito siempre */}
+            <Link to="/carrito">
+              <Button variant="ghost" size="icon">
+                <ShoppingCart className="h-5 w-5" />
+              </Button>
+            </Link>
+            
             {session ? (
-              <>
-                <Link to="/carrito">
-                  <Button variant="ghost" size="icon">
-                    <ShoppingCart className="h-5 w-5" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <User className="h-5 w-5" />
                   </Button>
-                </Link>
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <User className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Mi cuenta</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to="/perfil">Perfil</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/pedidos">Mis pedidos</Link>
-                    </DropdownMenuItem>
-                    {userRole === "admin" && (
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin">Panel de administración</Link>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
-                      <LogOut className="mr-2 h-4 w-4" /> Cerrar sesión
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Mi cuenta</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin-panel">Panel de usuario</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
+                    <LogOut className="mr-2 h-4 w-4" /> Cerrar sesión
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <Button asChild variant="default" className="bg-orange-500 hover:bg-orange-600">
                 <Link to="/auth">Iniciar sesión</Link>
@@ -155,13 +147,12 @@ const Navbar = () => {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
-            {session && (
-              <Link to="/carrito" className="mr-2">
-                <Button variant="ghost" size="icon">
-                  <ShoppingCart className="h-5 w-5" />
-                </Button>
-              </Link>
-            )}
+            {/* Mostrar botón del carrito siempre */}
+            <Link to="/carrito" className="mr-2">
+              <Button variant="ghost" size="icon">
+                <ShoppingCart className="h-5 w-5" />
+              </Button>
+            </Link>
             <Button variant="ghost" onClick={toggleMenu} size="icon">
               {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
@@ -177,17 +168,9 @@ const Navbar = () => {
             
             {session ? (
               <>
-                <Link to="/perfil" className="block text-gray-700 hover:text-orange-500 py-2">
-                  Mi perfil
+                <Link to="/admin-panel" className="block text-gray-700 hover:text-orange-500 py-2">
+                  Panel de usuario
                 </Link>
-                <Link to="/pedidos" className="block text-gray-700 hover:text-orange-500 py-2">
-                  Mis pedidos
-                </Link>
-                {userRole === "admin" && (
-                  <Link to="/admin" className="block text-gray-700 hover:text-orange-500 py-2">
-                    Panel de administración
-                  </Link>
-                )}
                 <button 
                   onClick={handleSignOut}
                   className="block w-full text-left text-red-600 hover:text-red-800 py-2"

@@ -1,22 +1,20 @@
-# Welcome to your Lovable project
+# KB-SPORT3 | Tienda de Fútbol
 
-## Project info
+## Información del proyecto
 
-**URL**: https://lovable.dev/projects/794d6e6b-544d-4ee1-b8c7-a29df91dce4a
+Tienda en línea de productos deportivos de fútbol.
 
 ## How can I edit this code?
 
 There are several ways of editing your application.
 
-**Use Lovable**
+**Desarrollo local**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/794d6e6b-544d-4ee1-b8c7-a29df91dce4a) and start prompting.
+Sigue las instrucciones a continuación para ejecutar el proyecto en tu entorno local.
 
-Changes made via Lovable will be committed automatically to this repo.
+**Uso de tu IDE preferido**
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Puedes clonar este repositorio y trabajar con tu IDE favorito para realizar cambios en el proyecto.
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -62,12 +60,8 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/794d6e6b-544d-4ee1-b8c7-a29df91dce4a) and click on Share -> Publish.
+Puedes utilizar servicios como Netlify, Vercel o GitHub Pages para desplegar este proyecto.
 
-## Can I connect a custom domain to my Lovable project?
+## ¿Puedo conectar un dominio personalizado?
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Sí, puedes conectar un dominio personalizado utilizando los servicios de tu proveedor de hosting preferido.

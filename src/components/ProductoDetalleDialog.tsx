@@ -40,12 +40,42 @@ const ProductoDetalleDialog = ({ producto, isOpen, onClose }: ProductoDetalleDia
       // Verificar si el usuario está autenticado
       const { data: { session } } = await supabase.auth.getSession();
       
+      // Permitir compras sin autenticación
       if (!session) {
+        // Usar localStorage para guardar el carrito
+        let carritoLocal = JSON.parse(localStorage.getItem('carritoLocal') || '[]');
+        
+        // Verificar si el producto ya está en el carrito
+        const productoExistente = carritoLocal.find(item => item.producto_id === producto.id);
+        
+        if (productoExistente) {
+          // Actualizar cantidad si ya existe
+          productoExistente.cantidad += cantidad;
+        } else {
+          // Agregar nuevo item al carrito
+          carritoLocal.push({
+            id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            producto_id: producto.id,
+            cantidad: cantidad,
+            precio_unitario: producto.precio,
+            producto: producto
+          });
+        }
+        
+        // Guardar carrito actualizado
+        localStorage.setItem('carritoLocal', JSON.stringify(carritoLocal));
+        
         toast({
-          title: "Inicia sesión",
-          description: "Debes iniciar sesión para agregar productos al carrito",
-          variant: "destructive",
+          title: "Producto agregado",
+          description: `Se ${cantidad > 1 ? 'han' : 'ha'} añadido ${cantidad} ${cantidad > 1 ? 'unidades' : 'unidad'} al carrito`,
         });
+        
+        // Cerrar el diálogo después de agregar al carrito
+        onClose();
+        // Resetear la cantidad
+        setCantidad(1);
+        
+        setIsLoading(false);
         return;
       }
 
@@ -66,7 +96,7 @@ const ProductoDetalleDialog = ({ producto, isOpen, onClose }: ProductoDetalleDia
         
         if (nuevoError) throw nuevoError;
         
-        // Agregar producto al nuevo carrito
+        // Continuar con el nuevo carrito
         const { error: insertError } = await supabase
           .from("carrito_items")
           .insert({

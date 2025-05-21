@@ -34,12 +34,37 @@ const ProductoCard = ({ producto }) => {
       // Verificar si el usuario está autenticado
       const { data: { session } } = await supabase.auth.getSession();
       
+      // Permitir compras sin autenticación
       if (!session) {
+        // Usar localStorage para guardar el carrito
+        let carritoLocal = JSON.parse(localStorage.getItem('carritoLocal') || '[]');
+        
+        // Verificar si el producto ya está en el carrito
+        const productoExistente = carritoLocal.find(item => item.producto_id === producto.id);
+        
+        if (productoExistente) {
+          // Actualizar cantidad si ya existe
+          productoExistente.cantidad += 1;
+        } else {
+          // Agregar nuevo item al carrito
+          carritoLocal.push({
+            id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            producto_id: producto.id,
+            cantidad: 1,
+            precio_unitario: producto.precio,
+            producto: producto
+          });
+        }
+        
+        // Guardar carrito actualizado
+        localStorage.setItem('carritoLocal', JSON.stringify(carritoLocal));
+        
         toast({
-          title: "Inicia sesión",
-          description: "Debes iniciar sesión para agregar productos al carrito",
-          variant: "destructive",
+          title: "Producto agregado",
+          description: "Se ha añadido el producto al carrito",
         });
+        
+        setIsLoading(false);
         return;
       }
 
@@ -50,7 +75,35 @@ const ProductoCard = ({ producto }) => {
         .eq("usuario_id", session.user.id)
         .single();
 
-      if (carritosError) throw carritosError;
+      if (carritosError) {
+        // Si no existe, crear un nuevo carrito
+        const { data: nuevoCarrito, error: nuevoError } = await supabase
+          .from("carritos")
+          .insert({ usuario_id: session.user.id })
+          .select("id")
+          .single();
+        
+        if (nuevoError) throw nuevoError;
+        
+        // Continuar con el nuevo carrito
+        const { error: insertError } = await supabase
+          .from("carrito_items")
+          .insert({
+            carrito_id: nuevoCarrito.id,
+            producto_id: producto.id,
+            cantidad: 1,
+            precio_unitario: producto.precio
+          });
+
+        if (insertError) throw insertError;
+        
+        toast({
+          title: "Producto agregado",
+          description: "Se ha añadido el producto al carrito",
+        });
+        
+        return;
+      }
 
       // Verificar si el producto ya está en el carrito
       const { data: itemsExistentes, error: itemsError } = await supabase
