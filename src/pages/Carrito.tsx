@@ -536,7 +536,7 @@ const Carrito = () => {
       mensaje += "Por favor, confirma disponibilidad y tiempo de entrega. ¡Gracias!";
       
       // Número de teléfono de la tienda (usando el prefijo de Colombia +57)
-      const numeroTienda = "+573015555555"; // Reemplazar con el número real de la tienda
+      const numeroTienda = "+573015318600"; // Reemplazar con el número real de la tienda
       
       // Crear URL de WhatsApp
       const whatsappUrl = `https://wa.me/${numeroTienda.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`;

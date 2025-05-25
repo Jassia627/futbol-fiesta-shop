@@ -10,17 +10,14 @@ const Footer = () => {
           <div>
             <h3 className="text-xl font-bold mb-4">KB-SPORT3</h3>
             <p className="mb-4">
-              Tu tienda especializada en productos de fútbol. Equipaciones oficiales, 
-              balones y accesorios de tus equipos favoritos.
+              
             </p>
             <div className="flex space-x-4">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+              <a href="https://www.facebook.com/share/1DGXQiZyUw/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
                 <Facebook className="h-5 w-5 hover:text-orange-500" />
               </a>
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
-                <Twitter className="h-5 w-5 hover:text-orange-500" />
-              </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+              
+              <a href="https://instagram.com/kb_sport3?igshid=OGQ5ZDc2ODk2ZA%3D%3D&utm_source=qr" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
                 <Instagram className="h-5 w-5 hover:text-orange-500" />
               </a>
             </div>
@@ -41,53 +38,28 @@ const Footer = () => {
               </li>
               <li>
                 <Link to="/ligas" className="hover:text-orange-500 transition-colors">
-                  Ligas
+                  
                 </Link>
               </li>
               <li>
                 <Link to="/equipos" className="hover:text-orange-500 transition-colors">
-                  Equipos
+                  
                 </Link>
               </li>
             </ul>
           </div>
           
-          <div>
-            <h3 className="text-xl font-bold mb-4">Ayuda</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link to="/envios" className="hover:text-orange-500 transition-colors">
-                  Envíos
-                </Link>
-              </li>
-              <li>
-                <Link to="/devoluciones" className="hover:text-orange-500 transition-colors">
-                  Devoluciones
-                </Link>
-              </li>
-              <li>
-                <Link to="/preguntas-frecuentes" className="hover:text-orange-500 transition-colors">
-                  Preguntas frecuentes
-                </Link>
-              </li>
-              <li>
-                <Link to="/contacto" className="hover:text-orange-500 transition-colors">
-                  Contacto
-                </Link>
-              </li>
-            </ul>
-          </div>
-          
+        
           <div>
             <h3 className="text-xl font-bold mb-4">Contacto</h3>
             <ul className="space-y-2">
               <li className="flex items-center">
                 <Phone className="h-5 w-5 mr-2" />
-                +34 91 234 56 78
+                3015318600
               </li>
               <li className="flex items-center">
                 <Mail className="h-5 w-5 mr-2" />
-                info@futbolfiestashop.com
+                dflorezpimienta@gmial.com
               </li>
             </ul>
           </div>
