@@ -37,6 +37,9 @@ const Productos = () => {
         
         let query = supabase.from("productos").select("*");
         
+        // Filtrar solo productos activos
+        query = query.or('activo.is.null,activo.eq.true');
+        
         // Aplicar filtros
         if (searchTerm) {
           query = query.ilike("nombre", `%${searchTerm}%`);

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { useCarrito } from "@/contexts/CarritoContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +49,7 @@ const Carrito = () => {
   
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { actualizarCantidad: actualizarContadorCarrito } = useCarrito();
 
   useEffect(() => {
     const checkUser = async () => {
@@ -57,7 +59,8 @@ const Carrito = () => {
         if (session) {
           setUser(session.user);
           await fetchCarrito(session.user.id);
-          await fetchPerfilUsuario(session.user.id);
+          // No cargamos los datos del perfil automáticamente para mantener el formulario vacío
+          // await fetchPerfilUsuario(session.user.id);
         } else {
           // Cargar carrito desde localStorage para usuarios no autenticados
           const carritoLocal = JSON.parse(localStorage.getItem('carritoLocal') || '[]');
@@ -72,6 +75,14 @@ const Carrito = () => {
     };
 
     checkUser();
+    
+    // Reiniciar los datos del cliente al entrar a la página
+    setDatosCliente({
+      nombre: "",
+      telefono: "",
+      direccion: "",
+      email: ""
+    });
   }, [navigate]);
 
   const fetchPerfilUsuario = async (userId: string) => {
@@ -264,12 +275,12 @@ const Carrito = () => {
       return;
     }
 
-    // Si el usuario está autenticado y ya tenemos sus datos, podemos proceder
-    if (user && datosCliente.nombre && datosCliente.telefono && datosCliente.direccion) {
-      enviarPedidoWhatsApp();
-    } else {
-      // Mostrar formulario para recopilar datos del cliente
-      setMostrarFormulario(true);
+    // Siempre mostrar el formulario para asegurarnos de que los datos estén actualizados
+    setMostrarFormulario(true);
+    
+    // Si el usuario está autenticado, cargar sus datos para facilitar el llenado del formulario
+    if (user && (!datosCliente.nombre || !datosCliente.telefono || !datosCliente.direccion)) {
+      fetchPerfilUsuario(user.id);
     }
   };
 
@@ -551,12 +562,40 @@ const Carrito = () => {
 
       // Limpiar carrito después de enviar el pedido
       if (!user) {
+        // Para usuarios no autenticados, limpiar localStorage
         localStorage.setItem('carritoLocal', '[]');
         setItems([]);
         calcularTotal([]);
+        
+        // Actualizar el contador del carrito en el contexto global
+        actualizarContadorCarrito();
       } else {
-        // Si el usuario está autenticado, también podríamos vaciar su carrito en la base de datos
-        // Esto dependerá de la lógica de negocio que se quiera implementar
+        // Para usuarios autenticados, limpiar carrito en la base de datos
+        try {
+          // Obtener el ID del carrito del usuario
+          const { data: carrito } = await supabase
+            .from("carritos")
+            .select("id")
+            .eq("usuario_id", user.id)
+            .single();
+          
+          if (carrito) {
+            // Eliminar todos los items del carrito
+            await supabase
+              .from("carrito_items")
+              .delete()
+              .eq("carrito_id", carrito.id);
+            
+            // Actualizar el estado local
+            setItems([]);
+            calcularTotal([]);
+            
+            // Actualizar el contador del carrito en el contexto global
+            actualizarContadorCarrito();
+          }
+        } catch (error) {
+          console.error("Error al limpiar carrito en base de datos:", error);
+        }
       }
 
       // Ocultar formulario

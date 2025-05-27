@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ShoppingCart, User, Menu, X, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCarrito } from "@/contexts/CarritoContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,7 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const { toast } = useToast();
+  const { cantidadProductos } = useCarrito();
 
   useEffect(() => {
     // Suscribirse a cambios de autenticación
@@ -114,8 +116,13 @@ const Navbar = () => {
             
             {/* Mostrar botón del carrito siempre */}
             <Link to="/carrito">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="relative">
                 <ShoppingCart className="h-5 w-5" />
+                {cantidadProductos > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {cantidadProductos > 99 ? '99+' : cantidadProductos}
+                  </span>
+                )}
               </Button>
             </Link>
             
@@ -149,8 +156,13 @@ const Navbar = () => {
           <div className="md:hidden flex items-center">
             {/* Mostrar botón del carrito siempre */}
             <Link to="/carrito" className="mr-2">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="relative">
                 <ShoppingCart className="h-5 w-5" />
+                {cantidadProductos > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {cantidadProductos > 99 ? '99+' : cantidadProductos}
+                  </span>
+                )}
               </Button>
             </Link>
             <Button variant="ghost" onClick={toggleMenu} size="icon">

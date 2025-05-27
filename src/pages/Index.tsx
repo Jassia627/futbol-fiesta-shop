@@ -20,6 +20,7 @@ const Index = () => {
           .from("productos")
           .select("*")
           .eq("destacado", true)
+          .or('activo.is.null,activo.eq.true') // Solo productos activos
           .limit(4);
 
         if (error) {
@@ -87,25 +88,8 @@ const Index = () => {
       
       <Separator className="my-8" />
       
-      {/* Ligas */}
-      <section className="container mx-auto px-4 py-12 bg-gray-50">
-        <h2 className="text-3xl font-bold text-center mb-8 text-blue-900">Explora por Ligas</h2>
-        <LigasList />
-      </section>
       
-      {/* CTA */}
-      <section className="bg-orange-500 text-white py-12">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">¿Listo para vestir como un campeón?</h2>
-          <p className="mb-8 text-xl">Regístrate ahora y obtén un 10% de descuento en tu primera compra.</p>
-          <a 
-            href="/auth"
-            className="bg-blue-900 hover:bg-blue-800 text-white px-8 py-3 rounded-full font-medium text-lg inline-block transition-colors"
-          >
-            Crear Cuenta
-          </a>
-        </div>
-      </section>
+      
       
       <Footer />
     </div>

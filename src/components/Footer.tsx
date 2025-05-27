@@ -1,29 +1,38 @@
 
 import { Link } from "react-router-dom";
-import { Facebook, Twitter, Instagram, Mail, Phone } from "lucide-react";
+import { Facebook, Instagram, Mail, Phone } from "lucide-react";
 
 const Footer = () => {
   return (
     <footer className="bg-blue-900 text-white">
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 text-center">
+          <div className="flex flex-col items-center">
             <h3 className="text-xl font-bold mb-4">KB-SPORT3</h3>
-            <p className="mb-4">
-              
-            </p>
-            <div className="flex space-x-4">
-              <a href="https://www.facebook.com/share/1DGXQiZyUw/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-                <Facebook className="h-5 w-5 hover:text-orange-500" />
+            <div className="flex justify-center space-x-6 mb-4">
+              <a 
+                href="https://www.facebook.com/share/1DGXQiZyUw/?mibextid=wwXIfr" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                aria-label="Facebook"
+                className="hover:scale-110 transition-transform"
+              >
+                <Facebook className="h-6 w-6 hover:text-orange-500" />
               </a>
               
-              <a href="https://instagram.com/kb_sport3?igshid=OGQ5ZDc2ODk2ZA%3D%3D&utm_source=qr" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                <Instagram className="h-5 w-5 hover:text-orange-500" />
+              <a 
+                href="https://instagram.com/kb_sport3?igshid=OGQ5ZDc2ODk2ZA%3D%3D&utm_source=qr" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                aria-label="Instagram"
+                className="hover:scale-110 transition-transform"
+              >
+                <Instagram className="h-6 w-6 hover:text-orange-500" />
               </a>
             </div>
           </div>
           
-          <div>
+          <div className="flex flex-col items-center">
             <h3 className="text-xl font-bold mb-4">Enlaces</h3>
             <ul className="space-y-2">
               <li>
@@ -37,27 +46,26 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/ligas" className="hover:text-orange-500 transition-colors">
-                  
+                <Link to="/mision-vision" className="hover:text-orange-500 transition-colors">
+                  Misión y Visión
                 </Link>
               </li>
               <li>
-                <Link to="/equipos" className="hover:text-orange-500 transition-colors">
-                  
+                <Link to="/acerca-de-nosotros" className="hover:text-orange-500 transition-colors">
+                  Acerca de Nosotros
                 </Link>
               </li>
             </ul>
           </div>
           
-        
-          <div>
+          <div className="flex flex-col items-center">
             <h3 className="text-xl font-bold mb-4">Contacto</h3>
             <ul className="space-y-2">
-              <li className="flex items-center">
+              <li className="flex items-center justify-center">
                 <Phone className="h-5 w-5 mr-2" />
                 3015318600
               </li>
-              <li className="flex items-center">
+              <li className="flex items-center justify-center">
                 <Mail className="h-5 w-5 mr-2" />
                 dflorezpimienta@gmial.com
               </li>

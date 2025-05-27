@@ -6,12 +6,14 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Eye } from "lucide-react";
 import ProductoDetalleDialog from "./ProductoDetalleDialog";
+import { useCarrito } from "@/contexts/CarritoContext";
 
 const ProductoCard = ({ producto }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { actualizarCantidad } = useCarrito();
   
   useEffect(() => {
     const handleResize = () => {
@@ -58,6 +60,9 @@ const ProductoCard = ({ producto }) => {
         
         // Guardar carrito actualizado
         localStorage.setItem('carritoLocal', JSON.stringify(carritoLocal));
+        
+        // Actualizar el contador del carrito
+        actualizarCantidad();
         
         toast({
           title: "Producto agregado",
@@ -139,6 +144,9 @@ const ProductoCard = ({ producto }) => {
         if (insertError) throw insertError;
       }
 
+      // Actualizar el contador del carrito
+      actualizarCantidad();
+      
       toast({
         title: "Producto agregado",
         description: "Se ha añadido el producto al carrito",

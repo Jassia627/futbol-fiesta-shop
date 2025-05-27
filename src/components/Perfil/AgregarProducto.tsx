@@ -24,6 +24,7 @@ const AgregarProducto = ({ userId }) => {
     liga: "",
     equipo: "",
     destacado: false,
+    activo: true,
   });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -223,6 +224,7 @@ const AgregarProducto = ({ userId }) => {
         liga: formData.liga,
         equipo: formData.equipo,
         destacado: formData.destacado,
+        activo: formData.activo,
         created_at: new Date().toISOString(),
       };
 
@@ -286,6 +288,7 @@ const AgregarProducto = ({ userId }) => {
         liga: "",
         equipo: "",
         destacado: false,
+        activo: true,
       });
     } catch (error) {
       console.error("Error al agregar producto:", error);
@@ -450,31 +453,37 @@ const AgregarProducto = ({ userId }) => {
               </div>
             )}
             
-            {/* Campo alternativo para URL de imagen */}
+            {/* Nota informativa */}
             <div className="mt-2">
-              <Label htmlFor="imagen" className="text-sm text-gray-500">O ingresa una URL de imagen</Label>
-              <Input
-                id="imagen"
-                name="imagen"
-                value={formData.imagen}
-                onChange={handleChange}
-                placeholder="https://ejemplo.com/imagen.jpg"
-                className="mt-1"
-              />
+              <p className="text-xs text-gray-500">Selecciona una imagen para tu producto. Si tienes problemas al cargar la imagen, intenta con una de menor tamaño.</p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="destacado"
-              checked={formData.destacado}
-              onCheckedChange={(checked) => 
-                setFormData({...formData, destacado: !!checked})
-              }
-            />
-            <Label htmlFor="destacado" className="cursor-pointer">
-              Marcar como producto destacado
-            </Label>
+          <div className="space-y-4 mt-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="destacado"
+                checked={formData.destacado}
+                onCheckedChange={(checked) => 
+                  setFormData({...formData, destacado: !!checked})
+                }
+              />
+              <Label htmlFor="destacado" className="cursor-pointer">
+                Producto destacado
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="activo"
+                checked={formData.activo}
+                onCheckedChange={(checked) => 
+                  setFormData({...formData, activo: !!checked})
+                }
+              />
+              <Label htmlFor="activo" className="cursor-pointer">
+                Producto activo (visible en catálogo)
+              </Label>
+            </div>
           </div>
 
           <Button 
