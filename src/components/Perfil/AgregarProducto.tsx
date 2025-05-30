@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Check, Loader2, Upload, Image as ImageIcon } from "lucide-react";
+import { Check, Loader2, Upload, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 const AgregarProducto = ({ userId }) => {
   const fileInputRef = useRef(null);
@@ -25,7 +27,13 @@ const AgregarProducto = ({ userId }) => {
     equipo: "",
     destacado: false,
     activo: true,
+    tieneTallas: false,
   });
+  
+  // Estado para manejar las tallas y sus cantidades
+  const [tallas, setTallas] = useState([
+    { talla: "", cantidad: "" }
+  ]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [imageFile, setImageFile] = useState(null);
@@ -41,6 +49,27 @@ const AgregarProducto = ({ userId }) => {
     "accesorios", 
     "otros"
   ];
+  
+  // Tallas comunes para productos de fútbol
+  const tallasComunes = [
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "XXL",
+    "XXXL",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "Único"
+  ];
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -48,6 +77,11 @@ const AgregarProducto = ({ userId }) => {
       ...formData,
       [name]: type === "checkbox" ? checked : value,
     });
+    
+    // Si se cambia el valor de tieneTallas a false, reiniciar las tallas
+    if (name === "tieneTallas" && !checked) {
+      setTallas([{ talla: "", cantidad: "" }]);
+    }
   };
 
   const handleSelectChange = (name, value) => {
@@ -55,6 +89,29 @@ const AgregarProducto = ({ userId }) => {
       ...formData,
       [name]: value,
     });
+  };
+  
+  // Manejar cambios en las tallas
+  const handleTallaChange = (index, field, value) => {
+    const newTallas = [...tallas];
+    newTallas[index][field] = value;
+    setTallas(newTallas);
+  };
+  
+  // Añadir una nueva talla
+  const addTalla = () => {
+    setTallas([...tallas, { talla: "", cantidad: "" }]);
+  };
+  
+  // Eliminar una talla
+  const removeTalla = (index) => {
+    if (tallas.length > 1) {
+      const newTallas = tallas.filter((_, i) => i !== index);
+      setTallas(newTallas);
+    } else {
+      // Si es la última talla, solo limpiarla
+      setTallas([{ talla: "", cantidad: "" }]);
+    }
   };
   
   const handleFileChange = (e) => {
@@ -218,7 +275,10 @@ const AgregarProducto = ({ userId }) => {
         nombre: formData.nombre,
         descripcion: formData.descripcion,
         precio: parseFloat(formData.precio),
-        stock: parseInt(formData.stock),
+        // Si tiene tallas, el stock total será la suma de las cantidades de cada talla
+        stock: formData.tieneTallas 
+          ? tallas.reduce((total, t) => total + (parseInt(t.cantidad) || 0), 0)
+          : parseInt(formData.stock),
         imagen: imageUrl, // Usar la URL de la imagen subida
         categoria: formData.categoria,
         liga: formData.liga,
@@ -244,16 +304,19 @@ const AgregarProducto = ({ userId }) => {
           'Content-Type': 'application/json',
           'apikey': supabase.supabaseKey,
           'Authorization': `Bearer ${token}`,
-          'Prefer': 'return=minimal'
+          'Prefer': 'return=representation' // Cambiar a representation para obtener el ID del producto creado
         },
         body: JSON.stringify([productoData])
       });
       
+      let productoId;
+      
       if (!response.ok) {
         // Si aún hay error, intentar con el método original
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("productos")
-          .insert([productoData]);
+          .insert([productoData])
+          .select();
 
         if (error) {
           // Verificar si es el error específico de recursión infinita
@@ -261,13 +324,52 @@ const AgregarProducto = ({ userId }) => {
             console.warn("Error de recursión en políticas al agregar producto, intentando método alternativo");
             
             // Intentar con un método aún más directo usando SQL (si está disponible)
-            const { error: rpcError } = await supabase.rpc('insertar_producto_directo', productoData);
+            const { data: rpcData, error: rpcError } = await supabase.rpc('insertar_producto_directo', productoData);
             
             if (rpcError) {
               throw rpcError;
             }
+            
+            productoId = rpcData?.id;
           } else {
             throw error;
+          }
+        } else if (data && data[0]) {
+          productoId = data[0].id;
+        }
+      } else {
+        // Obtener el ID del producto recién creado
+        const responseData = await response.json();
+        if (responseData && responseData[0]) {
+          productoId = responseData[0].id;
+        }
+      }
+      
+      // Si el producto tiene tallas y se obtuvo el ID del producto, guardar las tallas
+      if (formData.tieneTallas && productoId) {
+        // Filtrar tallas vacías
+        const tallasValidas = tallas.filter(t => t.talla && t.cantidad);
+        
+        if (tallasValidas.length > 0) {
+          // Preparar los datos de tallas para insertar
+          const tallasData = tallasValidas.map(t => ({
+            producto_id: productoId,
+            talla: t.talla,
+            cantidad: parseInt(t.cantidad) || 0
+          }));
+          
+          // Insertar las tallas
+          const { error: tallasError } = await supabase
+            .from("tallas")
+            .insert(tallasData);
+          
+          if (tallasError) {
+            console.error("Error al guardar tallas:", tallasError);
+            toast({
+              title: "Advertencia",
+              description: "El producto se guardó, pero hubo un problema al guardar las tallas",
+              variant: "warning",
+            });
           }
         }
       }
@@ -289,7 +391,11 @@ const AgregarProducto = ({ userId }) => {
         equipo: "",
         destacado: false,
         activo: true,
+        tieneTallas: false,
       });
+      
+      // Reiniciar las tallas
+      setTallas([{ talla: "", cantidad: "" }]);
     } catch (error) {
       console.error("Error al agregar producto:", error);
       toast({
@@ -350,15 +456,33 @@ const AgregarProducto = ({ userId }) => {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="stock">Stock*</Label>
-              <Input
-                id="stock"
-                name="stock"
-                type="number"
-                value={formData.stock}
-                onChange={handleChange}
-                required
-              />
+              <div className="flex items-center space-x-2 mb-2">
+                <Checkbox 
+                  id="tieneTallas"
+                  name="tieneTallas"
+                  checked={formData.tieneTallas}
+                  onCheckedChange={(checked) => 
+                    setFormData({...formData, tieneTallas: !!checked})
+                  }
+                />
+                <Label htmlFor="tieneTallas" className="cursor-pointer">
+                  Este producto tiene tallas
+                </Label>
+              </div>
+              
+              {!formData.tieneTallas ? (
+                <>
+                  <Label htmlFor="stock">Stock*</Label>
+                  <Input
+                    id="stock"
+                    name="stock"
+                    type="number"
+                    value={formData.stock}
+                    onChange={handleChange}
+                    required={!formData.tieneTallas}
+                  />
+                </>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="categoria">Categoría</Label>
@@ -459,6 +583,71 @@ const AgregarProducto = ({ userId }) => {
             </div>
           </div>
 
+          {formData.tieneTallas && (
+            <div className="space-y-4 border rounded-md p-4">
+              <div className="flex justify-between items-center">
+                <h3 className="font-medium">Tallas y cantidades</h3>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={addTalla}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Añadir talla
+                </Button>
+              </div>
+              
+              <Separator />
+              
+              {tallas.map((tallaItem, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-5">
+                    <Select
+                      value={tallaItem.talla}
+                      onValueChange={(value) => handleTallaChange(index, "talla", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar talla" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tallasComunes.map((t) => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-5">
+                    <Input
+                      type="number"
+                      placeholder="Cantidad"
+                      value={tallaItem.cantidad}
+                      onChange={(e) => handleTallaChange(index, "cantidad", e.target.value)}
+                      min="0"
+                    />
+                  </div>
+                  <div className="col-span-2 flex justify-end">
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => removeTalla(index)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              
+              {tallas.length > 0 && tallas.some(t => t.talla && t.cantidad) && (
+                <div className="mt-2">
+                  <p className="text-sm">Stock total: <Badge variant="outline">
+                    {tallas.reduce((total, t) => total + (parseInt(t.cantidad) || 0), 0)}
+                  </Badge></p>
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className="space-y-4 mt-4">
             <div className="flex items-center space-x-2">
               <Checkbox 

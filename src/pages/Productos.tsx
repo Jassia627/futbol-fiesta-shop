@@ -15,18 +15,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, Filter } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const Productos = () => {
   const [productos, setProductos] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [ligas, setLigas] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  const [tallas, setTallas] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filtros, setFiltros] = useState({
     liga: "",
     categoria: "",
     precioMin: "",
     precioMax: "",
+    talla: "",
   });
   const { toast } = useToast();
 
@@ -35,39 +38,95 @@ const Productos = () => {
       try {
         setIsLoading(true);
         
-        let query = supabase.from("productos").select("*");
-        
-        // Filtrar solo productos activos
-        query = query.or('activo.is.null,activo.eq.true');
-        
-        // Aplicar filtros
-        if (searchTerm) {
-          query = query.ilike("nombre", `%${searchTerm}%`);
-        }
-        
-        if (filtros.liga) {
-          query = query.eq("liga", filtros.liga);
-        }
-        
-        if (filtros.categoria) {
-          query = query.eq("categoria", filtros.categoria);
-        }
-        
-        if (filtros.precioMin) {
-          query = query.gte("precio", parseFloat(filtros.precioMin));
-        }
-        
-        if (filtros.precioMax) {
-          query = query.lte("precio", parseFloat(filtros.precioMax));
-        }
-        
-        const { data, error } = await query;
+        // Si hay un filtro de talla (que no sea "todas-tallas"), necesitamos hacer una consulta más compleja
+        if (filtros.talla && filtros.talla !== "todas-tallas") {
+          // Primero obtenemos los IDs de productos que tienen la talla seleccionada
+          const { data: tallasData, error: tallasError } = await supabase
+            .from("tallas")
+            .select("producto_id")
+            .eq("talla", filtros.talla);
+          
+          if (tallasError) throw tallasError;
+          
+          // Si no hay productos con esa talla, mostrar lista vacía
+          if (!tallasData || tallasData.length === 0) {
+            setProductos([]);
+            setIsLoading(false);
+            return;
+          }
+          
+          // Extraer los IDs de productos
+          const productosIds = tallasData.map(t => t.producto_id);
+          
+          // Consultar los productos con esos IDs
+          let query = supabase.from("productos").select("*").in("id", productosIds);
+          
+          // Filtrar solo productos activos
+          query = query.or('activo.is.null,activo.eq.true');
+          
+          // Aplicar otros filtros
+          if (searchTerm) {
+            query = query.ilike("nombre", `%${searchTerm}%`);
+          }
+          
+          if (filtros.liga) {
+            query = query.eq("liga", filtros.liga);
+          }
+          
+          if (filtros.categoria) {
+            query = query.eq("categoria", filtros.categoria);
+          }
+          
+          if (filtros.precioMin) {
+            query = query.gte("precio", parseFloat(filtros.precioMin));
+          }
+          
+          if (filtros.precioMax) {
+            query = query.lte("precio", parseFloat(filtros.precioMax));
+          }
+          
+          const { data, error } = await query;
+          
+          if (error) throw error;
+          setProductos(data || []);
+        } else {
+          // Consulta normal sin filtro de talla
+          let query = supabase.from("productos").select("*");
+          
+          // Filtrar solo productos activos
+          query = query.or('activo.is.null,activo.eq.true');
+          
+          // Aplicar filtros
+          if (searchTerm) {
+            query = query.ilike("nombre", `%${searchTerm}%`);
+          }
+          
+          if (filtros.liga) {
+            query = query.eq("liga", filtros.liga);
+          }
+          
+          if (filtros.categoria) {
+            query = query.eq("categoria", filtros.categoria);
+          }
+          
+          if (filtros.precioMin) {
+            query = query.gte("precio", parseFloat(filtros.precioMin));
+          }
+          
+          if (filtros.precioMax) {
+            query = query.lte("precio", parseFloat(filtros.precioMax));
+          }
+          
+          const { data, error } = await query;
+          
+          if (error) {
+            throw error;
+          }
 
-        if (error) {
-          throw error;
+          setProductos(data || []);
         }
 
-        setProductos(data || []);
+        setIsLoading(false);
       } catch (error) {
         console.error("Error al cargar productos:", error);
         toast({
@@ -104,6 +163,21 @@ const Productos = () => {
         )];
         
         setLigas(ligasUnicas);
+        
+        // Obtener tallas únicas disponibles
+        const { data: tallasData, error: tallasError } = await supabase
+          .from("tallas")
+          .select("talla");
+          
+        if (tallasError) throw tallasError;
+        
+        // Extraer tallas únicas
+        const tallasUnicas = [...new Set(tallasData
+          .map(t => t.talla)
+          .filter(talla => talla)
+        )];
+        
+        setTallas(tallasUnicas);
       } catch (error) {
         console.error("Error al cargar filtros:", error);
         toast({
@@ -131,6 +205,7 @@ const Productos = () => {
       categoria: "",
       precioMin: "",
       precioMax: "",
+      talla: "",
     });
     setSearchTerm("");
   };
@@ -175,7 +250,7 @@ const Productos = () => {
             </div>
           </div>
           
-          <div id="filtros-movil" className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 border-t pt-4 md:border-0 md:pt-0 md:mt-0 hidden md:grid">
+          <div id="filtros-movil" className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4 border-t pt-4 md:border-0 md:pt-0 md:mt-0 hidden md:grid">
             <div>
               <label className="text-sm font-medium mb-1 block">Liga</label>
               <Select
@@ -235,11 +310,31 @@ const Productos = () => {
                 onChange={(e) => handleFiltroChange("precioMax", e.target.value)}
               />
             </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-1 block">Talla</label>
+              <Select
+                value={filtros.talla}
+                onValueChange={(value) => handleFiltroChange("talla", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas las tallas" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="todas-tallas">Todas las tallas</SelectItem>
+                  {tallas.map((talla) => (
+                    <SelectItem key={talla} value={talla}>
+                      {talla}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
         
         {/* Resumen de filtros activos */}
-        {(filtros.liga || filtros.categoria || filtros.precioMin || filtros.precioMax) && (
+        {(filtros.liga || filtros.categoria || filtros.precioMin || filtros.precioMax || filtros.talla) && (
           <div className="flex flex-wrap gap-2 mb-4">
             <span className="text-sm text-gray-500">Filtros activos:</span>
             {filtros.liga && (
@@ -270,6 +365,14 @@ const Productos = () => {
               <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full flex items-center gap-1">
                 Hasta: ${filtros.precioMax}
                 <button onClick={() => handleFiltroChange("precioMax", "")} className="hover:text-orange-600">
+                  ✕
+                </button>
+              </span>
+            )}
+            {filtros.talla && (
+              <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full flex items-center gap-1">
+                Talla: {filtros.talla}
+                <button onClick={() => handleFiltroChange("talla", "")} className="hover:text-purple-600">
                   ✕
                 </button>
               </span>

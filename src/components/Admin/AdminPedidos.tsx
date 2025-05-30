@@ -412,7 +412,9 @@ const AdminPedidos = () => {
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
-                      {currentPedido.metodo_pago || "-"}
+                      <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">
+                        {currentPedido.metodo_pago || "WhatsApp"}
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -464,27 +466,42 @@ const AdminPedidos = () => {
                 </div>
               </div>
               
-              <div className="border rounded-md overflow-hidden">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader className="bg-gray-50">
                     <TableRow>
-                      <TableHead className="font-medium">Producto</TableHead>
-                      <TableHead className="text-right font-medium">Precio</TableHead>
-                      <TableHead className="text-right font-medium">Cantidad</TableHead>
-                      <TableHead className="text-right font-medium">Subtotal</TableHead>
+                      <TableHead className="font-semibold">Producto</TableHead>
+                      <TableHead className="font-semibold">Precio unitario</TableHead>
+                      <TableHead className="font-semibold">Cantidad</TableHead>
+                      <TableHead className="font-semibold">Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {pedidoItems.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-4 text-gray-500">
-                          No hay productos en este pedido
+                        <TableCell colSpan={4} className="text-center py-12">
+                          <div className="flex flex-col items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p className="text-gray-500 font-medium">No hay productos en este pedido</p>
+                            <p className="text-gray-400 text-sm mt-1">Los productos aparecerán aquí cuando se agreguen al pedido</p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ) : (
                       pedidoItems.map((item) => (
                         <TableRow key={item.id} className="hover:bg-gray-50">
-                          <TableCell className="font-medium">{item.productos?.nombre || "Producto"}</TableCell>
+                          <TableCell className="font-medium">
+                            <div>
+                              {item.productos?.nombre || "Producto"}
+                              {item.talla && (
+                                <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
+                                  Talla: {item.talla}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-right">${item.precio_unitario.toFixed(2)}</TableCell>
                           <TableCell className="text-right">{item.cantidad}</TableCell>
                           <TableCell className="text-right font-medium">

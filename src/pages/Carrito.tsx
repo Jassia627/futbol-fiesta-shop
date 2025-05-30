@@ -17,6 +17,7 @@ interface CarritoItem {
   carrito_id?: string;
   cantidad: number;
   precio_unitario: number;
+  talla?: string | null;
   producto: {
     id: string;
     nombre: string;
@@ -31,6 +32,7 @@ interface DatosCliente {
   telefono: string;
   direccion: string;
   email?: string;
+  metodoPago: string;
 }
 
 const Carrito = () => {
@@ -42,7 +44,8 @@ const Carrito = () => {
     nombre: "",
     telefono: "",
     direccion: "",
-    email: ""
+    email: "",
+    metodoPago: "Efectivo"
   });
   const [enviandoPedido, setEnviandoPedido] = useState(false);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -81,7 +84,8 @@ const Carrito = () => {
       nombre: "",
       telefono: "",
       direccion: "",
-      email: ""
+      email: "",
+      metodoPago: "Efectivo"
     });
   }, [navigate]);
 
@@ -103,7 +107,8 @@ const Carrito = () => {
           nombre: `${data.nombre || ''} ${data.apellido || ''}`.trim(),
           telefono: data.telefono || '',
           direccion: data.direccion || '',
-          email: user?.email || ''
+          email: user?.email || '',
+          metodoPago: "Efectivo"
         });
       }
     } catch (error) {
@@ -488,7 +493,7 @@ const Carrito = () => {
         usuario_id: user?.id || null,
         total: items.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0),
         estado: 'pendiente',
-        metodo_pago: 'WhatsApp',
+        metodo_pago: datosCliente.metodoPago,
         direccion_envio: datosCliente.direccion,
         fecha_pedido: new Date().toISOString(),
         cliente_nombre: datosCliente.nombre,
@@ -536,14 +541,15 @@ const Carrito = () => {
       let mensaje = `¡Hola! Quiero realizar el siguiente pedido (ID: ${pedidoId.slice(0, 8)}...):\n\n`;
       
       items.forEach(item => {
-        mensaje += `• ${item.cantidad}x ${item.producto.nombre} - $${item.precio_unitario.toFixed(2)} c/u - Subtotal: $${(item.cantidad * item.precio_unitario).toFixed(2)}\n`;
+        mensaje += `• ${item.cantidad}x ${item.producto.nombre}${item.talla ? ` (Talla: ${item.talla})` : ''} - $${item.precio_unitario.toFixed(2)} c/u - Subtotal: $${(item.cantidad * item.precio_unitario).toFixed(2)}\n`;
       });
       
       mensaje += `\n*Total: $${total.toFixed(2)}*\n\n`;
       mensaje += `*Datos del cliente:*\n`;
       mensaje += `Nombre: ${datosCliente.nombre}\n`;
       mensaje += `Teléfono: ${datosCliente.telefono}\n`;
-      mensaje += `Dirección: ${datosCliente.direccion}\n\n`;
+      mensaje += `Dirección: ${datosCliente.direccion}\n`;
+      mensaje += `Método de pago: ${datosCliente.metodoPago}\n\n`;
       mensaje += "Por favor, confirma disponibilidad y tiempo de entrega. ¡Gracias!";
       
       // Número de teléfono de la tienda (usando el prefijo de Colombia +57)
@@ -766,6 +772,23 @@ const Carrito = () => {
                           placeholder="tu@email.com"
                           type="email"
                         />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Método de pago *</label>
+                        <select
+                          name="metodoPago"
+                          value={datosCliente.metodoPago}
+                          onChange={(e) => setDatosCliente(prev => ({ ...prev, metodoPago: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          required
+                        >
+                          <option value="Efectivo">Efectivo</option>
+                          <option value="Transferencia bancaria">Transferencia bancaria</option>
+                          <option value="Nequi">Nequi</option>
+                          <option value="Daviplata">Daviplata</option>
+                          <option value="Tarjeta de crédito/débito">Tarjeta de crédito/débito</option>
+                        </select>
                       </div>
                     </div>
                   </div>

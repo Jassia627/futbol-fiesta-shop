@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Edit2, Trash2, Upload, Image as ImageIcon, Loader2, Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 const MisProductos = ({ userId }) => {
   // Definimos una interfaz para el producto que incluye el campo activo
@@ -44,6 +46,16 @@ const MisProductos = ({ userId }) => {
     equipo?: string;
     destacado?: boolean;
     activo?: boolean;
+    created_at?: string;
+    updated_at?: string;
+  }
+  
+  // Interfaz para las tallas
+  interface Talla {
+    id?: string;
+    producto_id?: string;
+    talla: string;
+    cantidad: string;
     created_at?: string;
     updated_at?: string;
   }
@@ -65,7 +77,13 @@ const MisProductos = ({ userId }) => {
     equipo: "",
     destacado: false,
     activo: true,
+    tieneTallas: false,
   });
+  
+  // Estado para manejar las tallas y sus cantidades
+  const [tallas, setTallas] = useState<Talla[]>([
+    { talla: "", cantidad: "" }
+  ]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -112,8 +130,49 @@ const MisProductos = ({ userId }) => {
       [name]: value,
     });
   };
+  
+  // Tallas comunes para productos de fútbol
+  const tallasComunes = [
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "XXL",
+    "XXXL",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "Único"
+  ];
+  
+  // Manejar cambios en las tallas
+  const handleTallaChange = (index, field, value) => {
+    const newTallas = [...tallas];
+    newTallas[index][field] = value;
+    setTallas(newTallas);
+  };
+  
+  // Añadir una nueva talla
+  const addTalla = () => {
+    setTallas([...tallas, { talla: "", cantidad: "" }]);
+  };
+  
+  // Eliminar una talla
+  const removeTalla = (index) => {
+    if (tallas.length > 1) {
+      const newTallas = tallas.filter((_, i) => i !== index);
+      setTallas(newTallas);
+    } else {
+      // Si es la última talla, solo limpiarla
+      setTallas([{ talla: "", cantidad: "" }]);
+    }
+  };
 
-  const openEditDialog = (producto: Producto) => {
+  const openEditDialog = async (producto: Producto) => {
     setEditingProducto(producto);
     setFormData({
       id: producto.id,
@@ -127,6 +186,7 @@ const MisProductos = ({ userId }) => {
       equipo: producto.equipo || "",
       destacado: producto.destacado || false,
       activo: producto.activo !== false, // Si no existe el campo, asumimos que está activo
+      tieneTallas: false, // Se actualizará después de verificar si tiene tallas
     });
     
     // Si el producto tiene una imagen, establecerla como vista previa
@@ -134,6 +194,37 @@ const MisProductos = ({ userId }) => {
       setImagePreview(producto.imagen);
     } else {
       setImagePreview("");
+    }
+    
+    // Cargar las tallas del producto
+    try {
+      const { data: tallasData, error } = await supabase
+        .from("tallas")
+        .select("*")
+        .eq("producto_id", producto.id);
+        
+      if (error) throw error;
+      
+      if (tallasData && tallasData.length > 0) {
+        // Formatear las tallas para el estado
+        const formattedTallas = tallasData.map(t => ({
+          id: t.id,
+          producto_id: t.producto_id,
+          talla: t.talla,
+          cantidad: t.cantidad.toString()
+        }));
+        
+        setTallas(formattedTallas);
+        setFormData(prev => ({ ...prev, tieneTallas: true }));
+      } else {
+        // Si no tiene tallas, inicializar con una vacía
+        setTallas([{ talla: "", cantidad: "" }]);
+        setFormData(prev => ({ ...prev, tieneTallas: false }));
+      }
+    } catch (error) {
+      console.error("Error al cargar tallas:", error);
+      // Si hay error, inicializar con una talla vacía
+      setTallas([{ talla: "", cantidad: "" }]);
     }
     
     setImageFile(null);
@@ -286,7 +377,10 @@ const MisProductos = ({ userId }) => {
         nombre: formData.nombre,
         descripcion: formData.descripcion,
         precio: parseFloat(formData.precio),
-        stock: parseInt(formData.stock),
+        // Si tiene tallas, el stock total será la suma de las cantidades de cada talla
+        stock: formData.tieneTallas 
+          ? tallas.reduce((total, t) => total + (parseInt(t.cantidad) || 0), 0)
+          : parseInt(formData.stock),
         imagen: imageUrl, // Usar la URL de la imagen subida
         categoria: formData.categoria,
         liga: formData.liga,
@@ -301,6 +395,56 @@ const MisProductos = ({ userId }) => {
         .eq("id", formData.id);
 
       if (error) throw error;
+      
+      // Si el producto tiene tallas, actualizar las tallas
+      if (formData.tieneTallas) {
+        // Filtrar tallas vacías
+        const tallasValidas = tallas.filter(t => t.talla && t.cantidad);
+        
+        if (tallasValidas.length > 0) {
+          // Primero eliminar todas las tallas existentes del producto
+          const { error: deleteError } = await supabase
+            .from("tallas")
+            .delete()
+            .eq("producto_id", formData.id);
+          
+          if (deleteError) {
+            console.error("Error al eliminar tallas existentes:", deleteError);
+            throw deleteError;
+          }
+          
+          // Preparar los datos de tallas para insertar
+          const tallasData = tallasValidas.map(t => ({
+            producto_id: formData.id,
+            talla: t.talla,
+            cantidad: parseInt(t.cantidad) || 0
+          }));
+          
+          // Insertar las nuevas tallas
+          const { error: tallasError } = await supabase
+            .from("tallas")
+            .insert(tallasData);
+          
+          if (tallasError) {
+            console.error("Error al guardar tallas:", tallasError);
+            toast({
+              title: "Advertencia",
+              description: "El producto se actualizó, pero hubo un problema al guardar las tallas",
+              variant: "warning",
+            });
+          }
+        }
+      } else {
+        // Si el producto no tiene tallas, eliminar todas las tallas existentes
+        const { error: deleteError } = await supabase
+          .from("tallas")
+          .delete()
+          .eq("producto_id", formData.id);
+        
+        if (deleteError) {
+          console.error("Error al eliminar tallas existentes:", deleteError);
+        }
+      }
       
       toast({
         title: "Éxito",
@@ -432,14 +576,14 @@ const MisProductos = ({ userId }) => {
                               <Edit2 className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="sm:max-w-[550px]">
+                          <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-hidden flex flex-col">
                             <DialogHeader>
                               <DialogTitle>Editar producto</DialogTitle>
                               <DialogDescription>
                                 Modifica la información de tu producto
                               </DialogDescription>
                             </DialogHeader>
-                            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+                            <form onSubmit={handleSubmit} className="space-y-4 pt-4 flex-1 overflow-y-auto pr-1">
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                   <Label htmlFor="nombre">Nombre</Label>
@@ -476,15 +620,33 @@ const MisProductos = ({ userId }) => {
                               </div>
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                  <Label htmlFor="stock">Stock</Label>
-                                  <Input
-                                    id="stock"
-                                    name="stock"
-                                    type="number"
-                                    value={formData.stock}
-                                    onChange={handleChange}
-                                    required
-                                  />
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <Checkbox 
+                                      id="tieneTallas"
+                                      name="tieneTallas"
+                                      checked={formData.tieneTallas}
+                                      onCheckedChange={(checked) => 
+                                        setFormData({...formData, tieneTallas: !!checked})
+                                      }
+                                    />
+                                    <Label htmlFor="tieneTallas" className="cursor-pointer">
+                                      Este producto tiene tallas
+                                    </Label>
+                                  </div>
+                                  
+                                  {!formData.tieneTallas ? (
+                                    <>
+                                      <Label htmlFor="stock">Stock</Label>
+                                      <Input
+                                        id="stock"
+                                        name="stock"
+                                        type="number"
+                                        value={formData.stock}
+                                        onChange={handleChange}
+                                        required={!formData.tieneTallas}
+                                      />
+                                    </>
+                                  ) : null}
                                 </div>
                                 <div className="space-y-2">
                                   <Label htmlFor="categoria">Categoría</Label>
@@ -578,6 +740,71 @@ const MisProductos = ({ userId }) => {
                                   </div>
                                 )}
                               </div>
+                              {formData.tieneTallas && (
+                                <div className="space-y-4 border rounded-md p-4">
+                                  <div className="flex justify-between items-center">
+                                    <h3 className="font-medium">Tallas y cantidades</h3>
+                                    <Button 
+                                      type="button" 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={addTalla}
+                                    >
+                                      <Plus className="h-4 w-4 mr-1" /> Añadir talla
+                                    </Button>
+                                  </div>
+                                  
+                                  <Separator />
+                                  
+                                  {tallas.map((tallaItem, index) => (
+                                    <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                                      <div className="col-span-5">
+                                        <Select
+                                          value={tallaItem.talla}
+                                          onValueChange={(value) => handleTallaChange(index, "talla", value)}
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Seleccionar talla" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {tallasComunes.map((t) => (
+                                              <SelectItem key={t} value={t}>{t}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      <div className="col-span-5">
+                                        <Input
+                                          type="number"
+                                          placeholder="Cantidad"
+                                          value={tallaItem.cantidad}
+                                          onChange={(e) => handleTallaChange(index, "cantidad", e.target.value)}
+                                          min="0"
+                                        />
+                                      </div>
+                                      <div className="col-span-2 flex justify-end">
+                                        <Button 
+                                          type="button" 
+                                          variant="ghost" 
+                                          size="icon"
+                                          onClick={() => removeTalla(index)}
+                                        >
+                                          <Trash2 className="h-4 w-4 text-red-500" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  
+                                  {tallas.length > 0 && tallas.some(t => t.talla && t.cantidad) && (
+                                    <div className="mt-2">
+                                      <p className="text-sm">Stock total: <Badge variant="outline">
+                                        {tallas.reduce((total, t) => total + (parseInt(t.cantidad) || 0), 0)}
+                                      </Badge></p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
                               <div className="flex flex-col space-y-4">
                                 <div className="flex items-center space-x-2">
                                   <Checkbox 
@@ -604,17 +831,19 @@ const MisProductos = ({ userId }) => {
                                   </Label>
                                 </div>
                               </div>
-                              <DialogFooter>
-                                <DialogClose asChild>
-                                  <Button type="button" variant="outline">Cancelar</Button>
-                                </DialogClose>
-                                <Button 
-                                  type="submit"
-                                  className="bg-orange-500 hover:bg-orange-600"
-                                >
-                                  Actualizar
-                                </Button>
-                              </DialogFooter>
+                              <div className="sticky bottom-0 pt-4 pb-2 bg-white border-t mt-4">
+                                <DialogFooter>
+                                  <DialogClose asChild>
+                                    <Button type="button" variant="outline">Cancelar</Button>
+                                  </DialogClose>
+                                  <Button 
+                                    type="submit"
+                                    className="bg-orange-500 hover:bg-orange-600"
+                                  >
+                                    Actualizar
+                                  </Button>
+                                </DialogFooter>
+                              </div>
                             </form>
                           </DialogContent>
                         </Dialog>
