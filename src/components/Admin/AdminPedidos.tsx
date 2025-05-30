@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -39,6 +38,7 @@ const AdminPedidos = () => {
   const [currentPedido, setCurrentPedido] = useState(null);
   const [pedidoItems, setPedidoItems] = useState([]);
   const [selectedEstado, setSelectedEstado] = useState("");
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -171,17 +171,38 @@ const AdminPedidos = () => {
   };
 
   const handleUpdateEstado = async () => {
+    if (!currentPedido || !selectedEstado) return;
+    
     try {
-      const { error } = await supabase
+      setIsUpdatingStatus(true);
+      const estadoAnterior = currentPedido.estado;
+      const estadoNuevo = selectedEstado;
+      
+      // Solo proceder si hay un cambio de estado
+      if (estadoAnterior === estadoNuevo) {
+        toast({
+          title: "Sin cambios",
+          description: "El estado seleccionado es el mismo que el actual",
+          variant: "default",
+        });
+        setIsDialogOpen(false);
+        return;
+      }
+
+      // Actualizar estado del pedido
+      const { error: updateError } = await supabase
         .from("pedidos")
-        .update({ estado: selectedEstado })
+        .update({ estado: estadoNuevo })
         .eq("id", currentPedido.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // Gestionar stock según el cambio de estado
+      await updateStockOnStatusChange(estadoAnterior, estadoNuevo, pedidoItems);
       
       toast({
         title: "Éxito",
-        description: "Estado del pedido actualizado correctamente",
+        description: `Estado del pedido actualizado de "${estadoAnterior}" a "${estadoNuevo}"`,
       });
       
       setIsDialogOpen(false);
@@ -190,9 +211,64 @@ const AdminPedidos = () => {
       console.error("Error al actualizar estado:", error);
       toast({
         title: "Error",
-        description: "No se pudo actualizar el estado del pedido",
+        description: "No se pudo actualizar el estado del pedido: " + error.message,
         variant: "destructive",
       });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  // Función para gestionar el stock según el cambio de estado
+  const updateStockOnStatusChange = async (estadoAnterior, estadoNuevo, items) => {
+    for (const item of items) {
+      const productId = item.producto_id;
+      const cantidad = item.cantidad;
+      
+      // Obtener stock actual del producto
+      const { data: producto, error: fetchError } = await supabase
+        .from("productos")
+        .select("stock")
+        .eq("id", productId)
+        .single();
+
+      if (fetchError) {
+        console.error(`Error al obtener stock del producto ${productId}:`, fetchError);
+        continue; // Continuar con el siguiente producto
+      }
+
+      let nuevoStock = producto.stock;
+
+      // Lógica de stock general del producto
+      if (estadoAnterior === "pendiente" && estadoNuevo === "enviado") {
+        nuevoStock = Math.max(0, producto.stock - cantidad);
+        
+      } else if (estadoNuevo === "cancelado" && estadoAnterior !== "cancelado") {
+        if (estadoAnterior === "enviado") {
+          nuevoStock = producto.stock + cantidad;
+        }
+        
+      } else if (estadoAnterior === "cancelado" && estadoNuevo === "enviado") {
+        nuevoStock = Math.max(0, producto.stock - cantidad);
+        
+      } else if (estadoAnterior === "enviado" && estadoNuevo === "pendiente") {
+        nuevoStock = producto.stock + cantidad;
+      } else {
+        continue; // No hay cambios en el stock
+      }
+
+      // Actualizar stock del producto si es necesario
+      if (nuevoStock !== producto.stock) {
+        const { error: updateStockError } = await supabase
+          .from("productos")
+          .update({ stock: nuevoStock })
+          .eq("id", productId);
+
+        if (updateStockError) {
+          console.error(`Error al actualizar stock del producto ${productId}:`, updateStockError);
+          throw new Error(`Error al actualizar stock del producto ${item.productos?.nombre || productId}`);
+        }
+      }
     }
   };
 
@@ -205,12 +281,8 @@ const AdminPedidos = () => {
     switch (estado) {
       case "pendiente":
         return "bg-yellow-100 text-yellow-800";
-      case "procesando":
-        return "bg-blue-100 text-blue-800";
       case "enviado":
         return "bg-green-100 text-green-800";
-      case "entregado":
-        return "bg-emerald-100 text-emerald-800";
       case "cancelado":
         return "bg-red-100 text-red-800";
       default:
@@ -251,9 +323,9 @@ const AdminPedidos = () => {
         </div>
         
         <div className="bg-white p-4 rounded-lg shadow border border-green-100">
-          <h3 className="text-lg font-medium text-gray-800 mb-2">Pedidos Completados</h3>
+          <h3 className="text-lg font-medium text-gray-800 mb-2">Pedidos Enviados</h3>
           <p className="text-3xl font-bold text-green-600">
-            {pedidos.filter(p => p.estado === 'entregado').length}
+            {pedidos.filter(p => p.estado === 'enviado').length}
           </p>
         </div>
       </div>
@@ -437,22 +509,10 @@ const AdminPedidos = () => {
                           <span>Pendiente</span>
                         </div>
                       </SelectItem>
-                      <SelectItem value="procesando">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                          <span>Procesando</span>
-                        </div>
-                      </SelectItem>
                       <SelectItem value="enviado">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-green-500"></span>
                           <span>Enviado</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="entregado">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                          <span>Entregado</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="cancelado">
@@ -495,11 +555,6 @@ const AdminPedidos = () => {
                           <TableCell className="font-medium">
                             <div>
                               {item.productos?.nombre || "Producto"}
-                              {item.talla && (
-                                <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
-                                  Talla: {item.talla}
-                                </span>
-                              )}
                             </div>
                           </TableCell>
                           <TableCell className="text-right">${item.precio_unitario.toFixed(2)}</TableCell>
@@ -529,9 +584,10 @@ const AdminPedidos = () => {
               </DialogClose>
               <Button 
                 onClick={handleUpdateEstado}
+                disabled={isUpdatingStatus}
                 className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
               >
-                Actualizar estado
+                {isUpdatingStatus ? "Actualizando..." : "Actualizar estado"}
               </Button>
             </DialogFooter>
           </DialogContent>

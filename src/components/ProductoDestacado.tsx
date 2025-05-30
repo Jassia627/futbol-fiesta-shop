@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -7,15 +6,60 @@ import { Card, CardContent, CardFooter, CardDescription } from "@/components/ui/
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Eye, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import ProductoDetalleDialog from "./ProductoDetalleDialog";
 import { useCarrito } from "@/contexts/CarritoContext";
 
 const ProductoDestacado = ({ producto }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [tieneTallas, setTieneTallas] = useState(false);
   const { toast } = useToast();
   const { actualizarCantidad } = useCarrito();
 
+  // Verificar si el producto tiene tallas
+  useEffect(() => {
+    const verificarTallas = async () => {
+      if (producto?.id) {
+        try {
+          // @ts-ignore - Ignorar error de TypeScript por tabla 'tallas' no definida en los tipos
+          const { data, error } = await supabase
+            .from("tallas")
+            .select("*")
+            .eq("producto_id", producto.id);
+          
+          if (!error && data && data.length > 0) {
+            setTieneTallas(true);
+          } else {
+            setTieneTallas(false);
+          }
+        } catch (error) {
+          console.error("Error al verificar tallas:", error);
+          setTieneTallas(false);
+        }
+      }
+    };
+    
+    verificarTallas();
+  }, [producto]);
+
   const agregarAlCarrito = async () => {
+    // Verificación estricta de stock al inicio
+    if (!producto.stock || producto.stock <= 0) {
+      toast({
+        title: "Sin stock",
+        description: "Este producto no está disponible",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Si el producto tiene tallas, abrir el diálogo para seleccionar talla
+    if (tieneTallas) {
+      setIsDialogOpen(true);
+      return;
+    }
+
     try {
       setIsLoading(true);
 
@@ -29,6 +73,19 @@ const ProductoDestacado = ({ producto }) => {
         
         // Verificar si el producto ya está en el carrito
         const productoExistente = carritoLocal.find(item => item.producto_id === producto.id);
+        
+        // Calcular cantidad actual en carrito
+        const cantidadEnCarrito = productoExistente ? productoExistente.cantidad : 0;
+        
+        // Verificación final: si ya hay productos en carrito que igualan o superan el stock
+        if (cantidadEnCarrito >= producto.stock) {
+          toast({
+            title: "Stock agotado",
+            description: `Ya tienes todas las unidades disponibles (${producto.stock}) en el carrito.`,
+            variant: "destructive",
+          });
+          return;
+        }
         
         if (productoExistente) {
           // Actualizar cantidad si ya existe
@@ -112,6 +169,19 @@ const ProductoDestacado = ({ producto }) => {
 
       if (itemsError) throw itemsError;
 
+      // Calcular cantidad actual en carrito
+      const cantidadEnCarrito = itemsExistentes && itemsExistentes.length > 0 ? itemsExistentes[0].cantidad : 0;
+      
+      // Verificación final: si ya hay productos en carrito que igualan o superan el stock
+      if (cantidadEnCarrito >= producto.stock) {
+        toast({
+          title: "Stock agotado",
+          description: `Ya tienes todas las unidades disponibles (${producto.stock}) en el carrito.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (itemsExistentes && itemsExistentes.length > 0) {
         // Actualizar cantidad si ya existe
         const { error: updateError } = await supabase
@@ -174,12 +244,28 @@ const ProductoDestacado = ({ producto }) => {
             {producto.categoria}
           </Badge>
         )}
+        {tieneTallas && (
+          <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded shadow">
+            Tallas disponibles
+          </div>
+        )}
       </div>
       <CardContent className="p-4 flex-grow">
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-semibold text-lg line-clamp-2">{producto.nombre}</h3>
         </div>
-        <p className="text-blue-900 font-bold text-xl">${producto.precio.toFixed(2)}</p>
+        <div className="flex justify-between items-center mb-2">
+          <p className="text-blue-900 font-bold text-xl">${producto.precio.toFixed(2)}</p>
+          {producto.stock > 0 ? (
+            <span className="text-xs px-2 py-0.5 bg-green-100 text-green-800 rounded-full">
+              En stock
+            </span>
+          ) : (
+            <span className="text-xs px-2 py-0.5 bg-red-100 text-red-800 rounded-full">
+              Sin stock
+            </span>
+          )}
+        </div>
         {producto.equipo && (
           <p className="text-gray-500 text-sm">{producto.equipo}</p>
         )}
@@ -202,7 +288,7 @@ const ProductoDestacado = ({ producto }) => {
         <Button 
           className="flex-1 bg-orange-500 hover:bg-orange-600"
           onClick={agregarAlCarrito}
-          disabled={isLoading || isAdded}
+          disabled={isLoading || isAdded || producto.stock <= 0}
         >
           {isAdded ? (
             <>
@@ -212,11 +298,20 @@ const ProductoDestacado = ({ producto }) => {
           ) : (
             <>
               <ShoppingCart className="mr-2 h-4 w-4" />
-              Añadir
+              {producto.stock <= 0 ? "Sin stock" : (tieneTallas ? "Seleccionar" : "Añadir")}
             </>
           )}
         </Button>
       </CardFooter>
+
+      <ProductoDetalleDialog 
+        producto={producto} 
+        isOpen={isDialogOpen} 
+        onClose={() => {
+          setIsDialogOpen(false);
+          actualizarCantidad();
+        }} 
+      />
     </Card>
   );
 };

@@ -147,7 +147,6 @@ const Carrito = () => {
         .select(`
           id,
           producto_id,
-          carrito_id,
           cantidad,
           precio_unitario,
           producto:productos (
@@ -155,7 +154,10 @@ const Carrito = () => {
             nombre,
             precio,
             imagen,
-            descripcion
+            descripcion,
+            categoria,
+            liga,
+            equipo
           )
         `)
         .eq("carrito_id", carritoId);
@@ -436,7 +438,8 @@ const Carrito = () => {
             pedido_id: pedidoId,
             producto_id: item.producto.id,
             cantidad: item.cantidad,
-            precio_unitario: item.precio_unitario
+            precio_unitario: item.precio_unitario,
+            talla: item.talla || null
           };
           
           const { error: itemError } = await supabase
@@ -466,7 +469,8 @@ const Carrito = () => {
                   pedido_id: pedidoId,
                   producto_id: item.producto.id,
                   cantidad: item.cantidad,
-                  precio_unitario: item.precio_unitario
+                  precio_unitario: item.precio_unitario,
+                  talla: item.talla || null
                 })
               });
             } catch (fetchError) {

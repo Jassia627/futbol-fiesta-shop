@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -24,16 +24,12 @@ const ProductoCard = ({ producto }) => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  
+
   // Verificar si el producto tiene tallas
   useEffect(() => {
     const verificarTallas = async () => {
       if (producto?.id) {
         try {
-          // Verificar si el usuario está autenticado
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          // Primero intentamos obtener las tallas desde la base de datos
           // @ts-ignore - Ignorar error de TypeScript por tabla 'tallas' no definida en los tipos
           const { data, error } = await supabase
             .from("tallas")
@@ -41,73 +37,38 @@ const ProductoCard = ({ producto }) => {
             .eq("producto_id", producto.id);
           
           if (!error && data && data.length > 0) {
-            // Si hay tallas en la base de datos, establecer tieneTallas a true
-            console.log(`Producto ${producto.nombre} tiene tallas (BD): ${true}`, data);
             setTieneTallas(true);
           } else {
-            // Si no hay tallas en la base de datos o hubo un error,
-            // verificar si el producto debería tener tallas basado en su nombre
-            // Solo para usuarios no autenticados o si hubo un error
-            if (!session || error) {
-              // Verificar si el producto debería tener tallas basado en su nombre
-              const nombreLowerCase = producto.nombre.toLowerCase();
-              const productosConTallas = [
-                'camiseta pro',
-                'camiseta barcelona local',
-                'barcelona retro 100 años',
-                'barcelona visitante'
-              ];
-              
-              // Verificar si el nombre del producto coincide exactamente con alguno de los productos con tallas
-              const tieneTallasPorNombre = productosConTallas.some(nombre => 
-                producto.nombre.toLowerCase().includes(nombre.toLowerCase()));
-              
-              console.log(`Producto ${producto.nombre} tiene tallas (por nombre): ${tieneTallasPorNombre}`);
-              setTieneTallas(tieneTallasPorNombre);
-            } else {
-              // Para usuarios autenticados, si no hay tallas en la base de datos, establecer tieneTallas a false
-              console.log(`Producto ${producto.nombre} tiene tallas (BD): ${false}`);
-              setTieneTallas(false);
-            }
+            setTieneTallas(false);
           }
         } catch (error) {
           console.error("Error al verificar tallas:", error);
-          // Como último recurso, verificamos por el nombre exacto del producto
-          const productosConTallas = [
-            'camiseta pro',
-            'camiseta barcelona local',
-            'barcelona retro 100 años',
-            'barcelona visitante'
-          ];
-          
-          // Verificar si el nombre del producto coincide exactamente con alguno de los productos con tallas
-          const tieneTallasPorNombre = productosConTallas.some(nombre => 
-            producto.nombre.toLowerCase().includes(nombre.toLowerCase()));
-          
-          console.log(`Producto ${producto.nombre} tiene tallas (fallback): ${tieneTallasPorNombre}`);
-          setTieneTallas(tieneTallasPorNombre);
+          setTieneTallas(false);
         }
       }
     };
     
     verificarTallas();
   }, [producto]);
-  
-  const abrirDetalles = (e) => {
-    e.preventDefault();
-    setIsDialogOpen(true);
-  };
 
   const agregarAlCarrito = async () => {
-    console.log("Verificando si el producto tiene tallas:", tieneTallas);
-    
+    if (!producto) return;
+
+    // Verificación estricta de stock al inicio
+    if (!producto.stock || producto.stock <= 0) {
+      toast({
+        title: "Sin stock",
+        description: "Este producto no está disponible",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Si el producto tiene tallas, abrir el diálogo para seleccionar talla
     if (tieneTallas) {
-      console.log("Producto con tallas, abriendo diálogo de selección");
       setIsDialogOpen(true);
       return;
     }
-    console.log("Producto sin tallas, agregando directamente al carrito");
     
     try {
       setIsLoading(true);
@@ -123,6 +84,19 @@ const ProductoCard = ({ producto }) => {
         // Verificar si el producto ya está en el carrito
         const productoExistente = carritoLocal.find(item => item.producto_id === producto.id);
         
+        // Calcular cantidad actual en carrito
+        const cantidadEnCarrito = productoExistente ? productoExistente.cantidad : 0;
+        
+        // Verificación final: si ya hay productos en carrito que igualan o superan el stock
+        if (cantidadEnCarrito >= producto.stock) {
+          toast({
+            title: "Stock agotado",
+            description: `Ya tienes todas las unidades disponibles (${producto.stock}) en el carrito.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        
         if (productoExistente) {
           // Actualizar cantidad si ya existe
           productoExistente.cantidad += 1;
@@ -133,8 +107,7 @@ const ProductoCard = ({ producto }) => {
             producto_id: producto.id,
             cantidad: 1,
             precio_unitario: producto.precio,
-            producto: producto,
-            talla: null // No hay talla seleccionada para productos sin tallas
+            producto: producto
           });
         }
         
@@ -145,96 +118,77 @@ const ProductoCard = ({ producto }) => {
         actualizarCantidad();
         
         toast({
-          title: "Producto agregado",
-          description: "Se ha añadido el producto al carrito",
+          title: "¡Producto agregado!",
+          description: `${producto.nombre} ha sido agregado al carrito`,
         });
-        
-        setIsLoading(false);
-        return;
-      }
-
-      // Buscar el carrito del usuario
-      const { data: carritos, error: carritosError } = await supabase
-        .from("carritos")
-        .select("id")
-        .eq("usuario_id", session.user.id)
-        .single();
-
-      if (carritosError) {
-        // Si no existe, crear un nuevo carrito
-        const { data: nuevoCarrito, error: nuevoError } = await supabase
+      } else {
+        // Usuario autenticado - usar base de datos
+        const { data: carrito } = await supabase
           .from("carritos")
-          .insert({ usuario_id: session.user.id })
           .select("id")
+          .eq("usuario_id", session.user.id)
           .single();
-        
-        if (nuevoError) throw nuevoError;
-        
-        // Continuar con el nuevo carrito
-        const { error: insertError } = await supabase
-          .from("carrito_items")
-          .insert({
-            carrito_id: nuevoCarrito.id,
-            producto_id: producto.id,
-            cantidad: 1,
-            precio_unitario: producto.precio
-            // Comentado temporalmente hasta que se añada la columna talla
-            // talla: null // No hay talla seleccionada para productos sin tallas
-          });
 
-        if (insertError) throw insertError;
+        let carritoId = carrito?.id;
+
+        if (!carritoId) {
+          const { data: nuevoCarrito, error } = await supabase
+            .from("carritos")
+            .insert({ usuario_id: session.user.id })
+            .select("id")
+            .single();
+
+          if (error) throw error;
+          carritoId = nuevoCarrito.id;
+        }
+
+        const { data: itemExistente } = await supabase
+          .from("carrito_items")
+          .select("id, cantidad")
+          .eq("carrito_id", carritoId)
+          .eq("producto_id", producto.id)
+          .single();
+
+        // Calcular cantidad actual en carrito
+        const cantidadEnCarrito = itemExistente ? itemExistente.cantidad : 0;
+        
+        // Verificación final: si ya hay productos en carrito que igualan o superan el stock
+        if (cantidadEnCarrito >= producto.stock) {
+          toast({
+            title: "Stock agotado",
+            description: `Ya tienes todas las unidades disponibles (${producto.stock}) en el carrito.`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (itemExistente) {
+          const { error } = await supabase
+            .from("carrito_items")
+            .update({ cantidad: itemExistente.cantidad + 1 })
+            .eq("id", itemExistente.id);
+
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("carrito_items")
+            .insert({
+              carrito_id: carritoId,
+              producto_id: producto.id,
+              cantidad: 1,
+              precio_unitario: producto.precio
+            });
+
+          if (error) throw error;
+        }
+
+        actualizarCantidad();
         
         toast({
-          title: "Producto agregado",
-          description: "Se ha añadido el producto al carrito",
+          title: "¡Producto agregado!",
+          description: `${producto.nombre} ha sido agregado al carrito`,
         });
-        
-        return;
       }
-
-      // Verificar si el producto ya está en el carrito
-      const { data: itemsExistentes, error: itemsError } = await supabase
-        .from("carrito_items")
-        .select("*")
-        .eq("carrito_id", carritos.id)
-        .eq("producto_id", producto.id);
-
-      if (itemsError) throw itemsError;
-
-      if (itemsExistentes && itemsExistentes.length > 0) {
-        // Actualizar cantidad si ya existe
-        const { error: updateError } = await supabase
-          .from("carrito_items")
-          .update({ 
-            cantidad: itemsExistentes[0].cantidad + 1,
-            precio_unitario: producto.precio
-          })
-          .eq("id", itemsExistentes[0].id);
-
-        if (updateError) throw updateError;
-      } else {
-        // Agregar nuevo item al carrito
-        const { error: insertError } = await supabase
-          .from("carrito_items")
-          .insert({
-            carrito_id: carritos.id,
-            producto_id: producto.id,
-            cantidad: 1,
-            precio_unitario: producto.precio
-            // Comentado temporalmente hasta que se añada la columna talla
-            // talla: null // No hay talla seleccionada para productos sin tallas
-          });
-
-        if (insertError) throw insertError;
-      }
-
-      // Actualizar el contador del carrito
-      actualizarCantidad();
-      
-      toast({
-        title: "Producto agregado",
-        description: "Se ha añadido el producto al carrito",
-      });
 
     } catch (error) {
       console.error("Error al agregar al carrito:", error);
@@ -248,15 +202,24 @@ const ProductoCard = ({ producto }) => {
     }
   };
 
+  if (!producto) {
+    return null;
+  }
+
   return (
-    <Card className="overflow-hidden transition-all duration-300 hover:shadow-md bg-white flex flex-col h-full">
-      <div className="relative">
-        <div className="aspect-square overflow-hidden">
-          <img
-            src={producto.imagen || "/placeholder.png"}
-            alt={producto.nombre}
-            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-          />
+    <Card className="h-full flex flex-col overflow-hidden transition-all hover:shadow-lg group">
+      <div className="relative aspect-square overflow-hidden">
+        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+          {producto.imagen ? (
+            <img 
+              src={producto.imagen} 
+              alt={producto.nombre} 
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              loading="lazy"
+            />
+          ) : (
+            <div className="text-gray-400">Sin imagen</div>
+          )}
         </div>
         {producto.destacado && (
           <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded shadow">
@@ -281,35 +244,25 @@ const ProductoCard = ({ producto }) => {
             </span>
           ) : (
             <span className="text-xs px-2 py-0.5 bg-red-100 text-red-800 rounded-full">
-              Agotado
+              Sin stock
             </span>
           )}
         </div>
       </CardContent>
       
       <CardFooter className="p-4 pt-0 flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1 flex items-center justify-center gap-1"
-          onClick={abrirDetalles}
-        >
-          <Eye className="h-4 w-4" />
-          {isMobile ? "" : "Ver detalles"}
+        <Button variant="outline" size="sm" className="flex-1" asChild>
+          <Link to={`/productos/${producto.id}`} className="flex items-center justify-center gap-1">
+            <Eye className="h-4 w-4" />
+            {isMobile ? "" : "Ver detalles"}
+          </Link>
         </Button>
         
         <Button
           variant="default"
           size="sm"
           className="flex-1 flex items-center justify-center gap-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
-          onClick={() => {
-            console.log("Botón de agregar al carrito clickeado, tieneTallas:", tieneTallas);
-            if (tieneTallas) {
-              setIsDialogOpen(true);
-            } else {
-              agregarAlCarrito();
-            }
-          }}
+          onClick={agregarAlCarrito}
           disabled={isLoading || producto.stock <= 0}
         >
           {isLoading ? (
@@ -317,19 +270,17 @@ const ProductoCard = ({ producto }) => {
           ) : (
             <React.Fragment>
               <ShoppingCart className="h-4 w-4" />
-              {isMobile ? "" : tieneTallas ? "Seleccionar talla" : "Agregar"}
+              {isMobile ? "" : producto.stock <= 0 ? "Sin stock" : (tieneTallas ? "Seleccionar" : "Agregar")}
             </React.Fragment>
           )}
         </Button>
       </CardFooter>
-      
+
       <ProductoDetalleDialog 
         producto={producto} 
         isOpen={isDialogOpen} 
         onClose={() => {
           setIsDialogOpen(false);
-          // Actualizar el contador del carrito después de cerrar el diálogo
-          // por si se agregó algo al carrito desde el diálogo
           actualizarCantidad();
         }} 
       />

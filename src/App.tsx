@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,6 +7,7 @@ import { CarritoProvider } from "@/contexts/CarritoContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Productos from "./pages/Productos";
+import ProductoDetalle from "./pages/ProductoDetalle";
 import AdminIndex from "./pages/Admin/Index";
 import NotFound from "./pages/NotFound";
 import Perfil from "./pages/Perfil";
@@ -35,6 +35,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/productos" element={<Productos />} />
+          <Route path="/productos/:id" element={<ProductoDetalle />} />
           <Route path="/admin" element={<AdminIndex />} />
           <Route path="/admin-panel" element={<AdminPanel />} />
           <Route path="/perfil" element={<Perfil />} />

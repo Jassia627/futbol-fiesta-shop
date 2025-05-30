@@ -109,7 +109,7 @@ const ProductoDetalleDialog = ({ producto, isOpen, onClose }: ProductoDetalleDia
         return;
       }
       
-      // Validar stock disponible si tiene tallas
+      // Verificación estricta de stock disponible
       if (tieneTallas && selectedTalla) {
         // @ts-ignore - Ignorar error de TypeScript
         const tallaSeleccionada = tallas.find(t => t.talla === selectedTalla);
@@ -124,10 +124,29 @@ const ProductoDetalleDialog = ({ producto, isOpen, onClose }: ProductoDetalleDia
         
         // @ts-ignore - Ignorar error de TypeScript
         const stockDisponible = parseInt(tallaSeleccionada.cantidad) || 0;
+        if (!stockDisponible || stockDisponible <= 0) {
+          toast({
+            title: "Sin stock",
+            description: `No hay stock disponible en talla ${selectedTalla}`,
+            variant: "destructive",
+          });
+          return;
+        }
+        
         if (stockDisponible < cantidad) {
           toast({
             title: "Stock insuficiente",
             description: `Solo hay ${stockDisponible} unidades disponibles en talla ${selectedTalla}`,
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        // Producto sin tallas
+        if (!producto.stock || producto.stock <= 0) {
+          toast({
+            title: "Sin stock",
+            description: "Este producto no está disponible",
             variant: "destructive",
           });
           return;
@@ -149,6 +168,34 @@ const ProductoDetalleDialog = ({ producto, isOpen, onClose }: ProductoDetalleDia
           item.producto_id === producto.id && 
           (!tieneTallas || item.talla === selectedTalla)
         );
+        
+        // Calcular cantidad actual en carrito
+        const cantidadEnCarrito = productoExistente ? productoExistente.cantidad : 0;
+        
+        // Validar stock disponible
+        const stockDisponible = tieneTallas ? 
+          (tallas.find(t => t.talla === selectedTalla)?.cantidad ? parseInt(tallas.find(t => t.talla === selectedTalla)?.cantidad || '0') : 0) : 
+          producto.stock;
+        
+        // Verificación final: si la nueva cantidad excedería el stock
+        if (cantidadEnCarrito + cantidad > stockDisponible) {
+          const disponible = stockDisponible - cantidadEnCarrito;
+          if (disponible <= 0) {
+            toast({
+              title: "Stock agotado",
+              description: `Ya tienes todas las unidades disponibles${tieneTallas ? ` en talla ${selectedTalla}` : ''} en el carrito.`,
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Stock insuficiente",
+              description: `Solo puedes agregar ${disponible} unidades más${tieneTallas ? ` en talla ${selectedTalla}` : ''}. Ya tienes ${cantidadEnCarrito} en el carrito.`,
+              variant: "destructive",
+            });
+          }
+          setIsLoading(false);
+          return;
+        }
         
         if (productoExistente) {
           // Actualizar cantidad si ya existe
@@ -227,6 +274,34 @@ const ProductoDetalleDialog = ({ producto, isOpen, onClose }: ProductoDetalleDia
         const { data: itemsExistentes, error: itemsError } = await query;
 
         if (itemsError) throw itemsError;
+
+        // Calcular cantidad actual en carrito  
+        const cantidadEnCarrito = itemsExistentes && itemsExistentes.length > 0 ? itemsExistentes[0].cantidad : 0;
+        
+        // Validar stock disponible
+        const stockDisponible = tieneTallas ? 
+          (tallas.find(t => t.talla === selectedTalla)?.cantidad ? parseInt(tallas.find(t => t.talla === selectedTalla)?.cantidad || '0') : 0) : 
+          producto.stock;
+        
+        // Verificación final: si la nueva cantidad excedería el stock
+        if (cantidadEnCarrito + cantidad > stockDisponible) {
+          const disponible = stockDisponible - cantidadEnCarrito;
+          if (disponible <= 0) {
+            toast({
+              title: "Stock agotado",
+              description: `Ya tienes todas las unidades disponibles${tieneTallas ? ` en talla ${selectedTalla}` : ''} en el carrito.`,
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Stock insuficiente", 
+              description: `Solo puedes agregar ${disponible} unidades más${tieneTallas ? ` en talla ${selectedTalla}` : ''}. Ya tienes ${cantidadEnCarrito} en el carrito.`,
+              variant: "destructive",
+            });
+          }
+          setIsLoading(false);
+          return;
+        }
 
         if (itemsExistentes && itemsExistentes.length > 0) {
           // Actualizar cantidad si ya existe
@@ -381,10 +456,14 @@ const ProductoDetalleDialog = ({ producto, isOpen, onClose }: ProductoDetalleDia
               <Button 
                 className="w-full bg-orange-500 hover:bg-orange-600 flex items-center justify-center gap-2"
                 onClick={agregarAlCarrito}
-                disabled={isLoading || (tieneTallas && !selectedTalla)}
+                disabled={isLoading || (tieneTallas && !selectedTalla) || 
+                  (tieneTallas && selectedTalla && parseInt(tallas.find(t => t.talla === selectedTalla)?.cantidad || "0") <= 0) ||
+                  (!tieneTallas && (!producto.stock || producto.stock <= 0))}
               >
                 <ShoppingCart size={18} />
-                {isLoading ? "Agregando..." : "Añadir al carrito"}
+                {isLoading ? "Agregando..." : 
+                  (tieneTallas && selectedTalla && parseInt(tallas.find(t => t.talla === selectedTalla)?.cantidad || "0") <= 0) ||
+                  (!tieneTallas && (!producto.stock || producto.stock <= 0)) ? "Sin stock" : "Añadir al carrito"}
               </Button>
             </div>
           </div>
